@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustchain-validators
+  namespace: rustchain
+  labels:
+    app: rustchain
+    component: validator
+spec:
+  clusterIP: None
+  selector:
+    app: rustchain
+    component: validator
+  ports:
+    - name: p2p
+      port: 30303
+      targetPort: p2p
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rustchain-api
+  namespace: rustchain
+  labels:
+    app: rustchain
+    component: api
+spec:
+  type: LoadBalancer
+  selector:
+    app: rustchain
+    component: validator
+  ports:
+    - name: http
+      port: 80
+      targetPort: api
+    - name: https
+      port: 443
+      targetPort: api

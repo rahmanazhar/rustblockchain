@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rustchain-config
+  namespace: rustchain
+data:
+  node.toml: |
+    [genesis]
+    chain_id = 1
+    chain_name = "rustchain-mainnet"
+
+    [storage]
+    cache_size_mb = 512
+    max_open_files = 512
+    write_buffer_size_mb = 64
+
+    [network]
+    listen_addresses = ["/ip4/0.0.0.0/tcp/30303"]
+    max_peers = 50
+    min_peers = 5
+    enable_mdns = false
+    enable_kademlia = true
+
+    [consensus]
+    block_time_ms = 5000
+    max_transactions_per_block = 1000
+    mempool_size = 10000
+    min_gas_price = 1
+    enable_block_production = true
+
+    [api]
+    bind_address = "0.0.0.0:8080"
+    max_request_body_size = 2097152
+    metrics_enabled = true
+
+    [api.rate_limit]
+    requests_per_second = 100
+    burst_size = 200
+
+    [api.auth]
+    jwt_expiration_secs = 3600
+    enable_rbac = true
+
+    [vm]
+    max_memory_pages = 256
+    max_call_depth = 256
+    max_code_size = 262144
+    fuel_metering = true
+
+    [logging]
+    level = "info"
+    format = "json"

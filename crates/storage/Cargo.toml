@@ -1,0 +1,20 @@
+[package]
+name = "rustchain-storage"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rustchain-crypto = { path = "../crypto" }
+rustchain-core = { path = "../core" }
+rocksdb.workspace = true
+serde.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+parking_lot.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+tempfile = "3"

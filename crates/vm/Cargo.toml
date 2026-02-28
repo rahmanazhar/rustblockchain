@@ -1,0 +1,19 @@
+[package]
+name = "rustchain-vm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rustchain-crypto = { path = "../crypto" }
+rustchain-core = { path = "../core" }
+wasmtime.workspace = true
+serde.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+dashmap.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

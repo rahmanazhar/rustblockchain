@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: rustchain-validator-policy
+  namespace: rustchain
+spec:
+  podSelector:
+    matchLabels:
+      app: rustchain
+      component: validator
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow P2P traffic between validators
+    - from:
+        - podSelector:
+            matchLabels:
+              app: rustchain
+      ports:
+        - port: 30303
+          protocol: TCP
+    # Allow API traffic from anywhere (filtered by ingress)
+    - ports:
+        - port: 8080
+          protocol: TCP
+    # Allow metrics scraping from Prometheus
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+      ports:
+        - port: 9090
+          protocol: TCP
+  egress:
+    # Allow P2P traffic to other validators
+    - to:
+        - podSelector:
+            matchLabels:
+              app: rustchain
+      ports:
+        - port: 30303
+          protocol: TCP
+    # Allow DNS resolution
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP

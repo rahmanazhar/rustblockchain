@@ -1,0 +1,24 @@
+[package]
+name = "rustchain-network"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+rustchain-crypto = { path = "../crypto" }
+rustchain-core = { path = "../core" }
+rustchain-consensus = { path = "../consensus" }
+libp2p.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+serde.workspace = true
+bincode.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+futures.workspace = true
+dashmap.workspace = true
+bytes.workspace = true
+async-trait.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
