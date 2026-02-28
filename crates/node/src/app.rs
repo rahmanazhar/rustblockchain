@@ -11,11 +11,12 @@ use tracing::{error, info};
 /// Main application that wires all components together.
 pub struct Application {
     config: NodeConfig,
+    keypair: Option<rustchain_crypto::KeyPair>,
 }
 
 impl Application {
-    pub fn new(config: NodeConfig) -> Self {
-        Self { config }
+    pub fn new(config: NodeConfig, keypair: Option<rustchain_crypto::KeyPair>) -> Self {
+        Self { config, keypair }
     }
 
     /// Run the application until shutdown.
@@ -30,10 +31,9 @@ impl Application {
         info!("Initializing WASM VM engine");
         let vm_engine = Arc::new(WasmEngine::new(&self.config.vm)?);
 
-        // 3. Load or generate validator keypair
+        // 3. Use provided keypair or generate one for validator mode
         let keypair = if self.config.consensus.enable_block_production {
-            // For devnet, generate a keypair from the first genesis validator
-            let kp = rustchain_crypto::KeyPair::generate();
+            let kp = self.keypair.unwrap_or_else(rustchain_crypto::KeyPair::generate);
             info!("Validator address: {}", kp.address());
             Some(kp)
         } else {

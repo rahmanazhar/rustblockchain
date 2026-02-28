@@ -88,20 +88,20 @@ async fn main() -> anyhow::Result<()> {
             keyfile: _,
             devnet,
         } => {
-            let config = if devnet {
+            let (config, keypair) = if devnet {
                 tracing::info!("Starting in devnet mode");
-                let mut config = NodeConfig::devnet();
+                let (mut config, keypair) = NodeConfig::devnet();
                 config.consensus.enable_block_production = true; // devnet always produces blocks
                 config.storage.path = cli.data_dir.join("chaindb");
-                config
+                (config, Some(keypair))
             } else {
                 let mut config = NodeConfig::load(&cli.config)?;
                 config.consensus.enable_block_production = validator;
                 config.storage.path = cli.data_dir.join("chaindb");
-                config
+                (config, None)
             };
 
-            let app = Application::new(config);
+            let app = Application::new(config, keypair);
             app.run().await?;
         }
         Commands::Init { genesis, data_dir } => {

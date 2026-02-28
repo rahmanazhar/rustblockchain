@@ -129,10 +129,10 @@ impl GenesisConfig {
             .collect()
     }
 
-    /// Create a default devnet genesis config.
-    pub fn devnet_default() -> Self {
+    /// Create a default devnet genesis config, returning the validator keypair.
+    pub fn devnet_default() -> (Self, rustchain_crypto::KeyPair) {
         let kp = rustchain_crypto::KeyPair::generate();
-        Self {
+        let config = Self {
             chain_id: 9999,
             chain_name: "rustchain-devnet".to_string(),
             timestamp: chrono::Utc::now().timestamp_millis() as u64,
@@ -150,7 +150,8 @@ impl GenesisConfig {
                 ..ConsensusParams::default()
             },
             gas_limit: 10_000_000,
-        }
+        };
+        (config, kp)
     }
 }
 
@@ -160,13 +161,13 @@ mod tests {
 
     #[test]
     fn test_devnet_genesis_valid() {
-        let config = GenesisConfig::devnet_default();
+        let (config, _kp) = GenesisConfig::devnet_default();
         assert!(config.validate().is_ok());
     }
 
     #[test]
     fn test_genesis_block_creation() {
-        let config = GenesisConfig::devnet_default();
+        let (config, _kp) = GenesisConfig::devnet_default();
         let block = config.to_genesis_block();
         assert_eq!(block.header.number, 0);
         assert_eq!(block.header.chain_id, 9999);
@@ -174,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_empty_validators_invalid() {
-        let mut config = GenesisConfig::devnet_default();
+        let (mut config, _kp) = GenesisConfig::devnet_default();
         config.initial_validators.clear();
         assert!(config.validate().is_err());
     }
