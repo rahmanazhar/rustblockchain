@@ -1,0 +1,30 @@
+# Build artifacts
+/target
+**/target
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data directories
+/data
+*.db
+
+# Keys and secrets
+*.key
+*.pem
+!deploy/scripts/*.sh
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+/logs

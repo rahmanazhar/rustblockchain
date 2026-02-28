@@ -1,0 +1,88 @@
+version: "3.8"
+
+services:
+  validator-1:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: rustchain-validator-1
+    command: ["run", "--devnet", "--validator", "--data-dir", "/var/lib/rustchain"]
+    ports:
+      - "30303:30303"
+      - "8080:8080"
+      - "9090:9090"
+    volumes:
+      - validator1-data:/var/lib/rustchain
+    networks:
+      - rustchain-net
+    restart: unless-stopped
+
+  validator-2:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: rustchain-validator-2
+    command: ["run", "--devnet", "--validator", "--data-dir", "/var/lib/rustchain"]
+    ports:
+      - "30304:30303"
+      - "8081:8080"
+      - "9091:9090"
+    volumes:
+      - validator2-data:/var/lib/rustchain
+    networks:
+      - rustchain-net
+    restart: unless-stopped
+
+  validator-3:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    container_name: rustchain-validator-3
+    command: ["run", "--devnet", "--validator", "--data-dir", "/var/lib/rustchain"]
+    ports:
+      - "30305:30303"
+      - "8082:8080"
+      - "9092:9090"
+    volumes:
+      - validator3-data:/var/lib/rustchain
+    networks:
+      - rustchain-net
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: rustchain-prometheus
+    ports:
+      - "9100:9090"
+    volumes:
+      - ../k8s/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - rustchain-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: rustchain-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - rustchain-net
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  validator1-data:
+  validator2-data:
+  validator3-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  rustchain-net:
+    driver: bridge

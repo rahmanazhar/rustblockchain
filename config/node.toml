@@ -1,0 +1,76 @@
+# RustChain Node Configuration
+
+[genesis]
+chain_id = 1
+chain_name = "rustchain"
+timestamp = 0
+gas_limit = 10000000
+
+[genesis.consensus_params]
+block_time_ms = 5000
+epoch_length = 100
+min_validators = 1
+max_validators = 100
+slash_fraction_double_sign = 500
+slash_fraction_downtime = 100
+downtime_jail_duration_ms = 600000
+min_stake = 1000000000000000000
+unbonding_period_epochs = 10
+max_missed_blocks = 50
+signed_blocks_window = 100
+
+[storage]
+path = "./data/chaindb"
+cache_size_mb = 256
+max_open_files = 512
+write_buffer_size_mb = 64
+enable_statistics = false
+
+[network]
+listen_addresses = ["/ip4/0.0.0.0/tcp/30303"]
+external_addresses = []
+bootnodes = []
+max_peers = 50
+min_peers = 5
+enable_mdns = true
+enable_kademlia = true
+request_timeout_secs = 30
+connection_timeout_secs = 10
+max_message_size = 4194304
+
+[consensus]
+chain_id = 1
+block_time_ms = 5000
+max_transactions_per_block = 1000
+mempool_size = 10000
+min_gas_price = 1
+enable_block_production = false
+gas_limit_per_block = 10000000
+
+[api]
+bind_address = "0.0.0.0:8080"
+cors_origins = ["*"]
+max_request_body_size = 2097152
+ws_max_connections = 1024
+metrics_enabled = true
+
+[api.rate_limit]
+requests_per_second = 100
+burst_size = 200
+
+[api.auth]
+jwt_secret = "change-me-in-production"
+jwt_expiration_secs = 3600
+enable_rbac = false
+admin_addresses = []
+
+[vm]
+max_memory_pages = 256
+max_call_depth = 256
+max_code_size = 262144
+max_stack_size = 1048576
+fuel_metering = true
+
+[logging]
+level = "info"
+format = "pretty"

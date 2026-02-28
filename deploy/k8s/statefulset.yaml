@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: rustchain-validator
+  namespace: rustchain
+  labels:
+    app: rustchain
+    component: validator
+spec:
+  serviceName: rustchain-validators
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rustchain
+      component: validator
+  template:
+    metadata:
+      labels:
+        app: rustchain
+        component: validator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: rustchain
+          image: rustchain:latest
+          command: ["rustchain", "run", "--validator"]
+          args:
+            - "--config"
+            - "/etc/rustchain/node.toml"
+            - "--data-dir"
+            - "/data"
+          ports:
+            - name: p2p
+              containerPort: 30303
+              protocol: TCP
+            - name: api
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          env:
+            - name: RUST_LOG
+              value: "info"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: rustchain-secrets
+                  key: jwt-secret
+          volumeMounts:
+            - name: chaindata
+              mountPath: /data
+            - name: config
+              mountPath: /etc/rustchain
+            - name: validator-key
+              mountPath: /etc/rustchain/keys
+              readOnly: true
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "2000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: api
+            initialDelaySeconds: 10
+            periodSeconds: 5
+      volumes:
+        - name: config
+          configMap:
+            name: rustchain-config
+        - name: validator-key
+          secret:
+            secretName: rustchain-validator-key
+  volumeClaimTemplates:
+    - metadata:
+        name: chaindata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ssd
+        resources:
+          requests:
+            storage: 100Gi

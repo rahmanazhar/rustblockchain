@@ -1,0 +1,23 @@
+[package]
+name = "rustchain-wallet"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "rustchain-wallet"
+path = "src/main.rs"
+
+[dependencies]
+rustchain-crypto = { path = "../crypto" }
+rustchain-core = { path = "../core" }
+tokio.workspace = true
+clap.workspace = true
+dialoguer.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+hex.workspace = true
+chrono.workspace = true
