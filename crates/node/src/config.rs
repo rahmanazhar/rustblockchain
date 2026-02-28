@@ -45,10 +45,10 @@ impl NodeConfig {
         Ok(config)
     }
 
-    /// Create a default development configuration.
-    pub fn devnet() -> Self {
-        let genesis = GenesisConfig::devnet_default();
-        Self {
+    /// Create a default development configuration, returning the validator keypair.
+    pub fn devnet() -> (Self, rustchain_crypto::KeyPair) {
+        let (genesis, keypair) = GenesisConfig::devnet_default();
+        let config = Self {
             consensus: ConsensusConfig {
                 chain_id: genesis.chain_id,
                 block_time_ms: genesis.consensus_params.block_time_ms,
@@ -63,6 +63,7 @@ impl NodeConfig {
             api: ApiConfig::default(),
             vm: VmConfig::default(),
             logging: LoggingConfig::default(),
-        }
+        };
+        (config, keypair)
     }
 }
