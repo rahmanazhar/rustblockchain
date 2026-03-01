@@ -45,6 +45,69 @@ enum WalletCommand {
         #[arg(long, default_value = "")]
         password: String,
     },
+    /// Stake tokens to become a validator
+    Stake {
+        /// Validator address (hex)
+        #[arg(long)]
+        from: String,
+        /// Amount to stake
+        #[arg(long)]
+        amount: u128,
+        /// Keystore password
+        #[arg(long, default_value = "")]
+        password: String,
+    },
+    /// Unstake tokens from the validator set
+    Unstake {
+        /// Validator address (hex)
+        #[arg(long)]
+        from: String,
+        /// Amount to unstake
+        #[arg(long)]
+        amount: u128,
+        /// Keystore password
+        #[arg(long, default_value = "")]
+        password: String,
+    },
+    /// Deploy a smart contract
+    Deploy {
+        /// Deployer address (hex)
+        #[arg(long)]
+        from: String,
+        /// Path to WASM bytecode
+        #[arg(long)]
+        wasm: PathBuf,
+        /// Keystore password
+        #[arg(long, default_value = "")]
+        password: String,
+        /// Gas limit for deployment
+        #[arg(long, default_value = "1000000")]
+        gas_limit: u64,
+    },
+    /// Call a smart contract function
+    Call {
+        /// Caller address (hex)
+        #[arg(long)]
+        from: String,
+        /// Contract address (hex)
+        #[arg(long)]
+        contract: String,
+        /// Function name
+        #[arg(long)]
+        function: String,
+        /// Arguments (hex encoded)
+        #[arg(long, default_value = "")]
+        args: String,
+        /// Value to send with the call
+        #[arg(long, default_value = "0")]
+        value: u128,
+        /// Keystore password
+        #[arg(long, default_value = "")]
+        password: String,
+        /// Gas limit
+        #[arg(long, default_value = "500000")]
+        gas_limit: u64,
+    },
     /// Query blockchain state
     Query {
         #[command(subcommand)]
@@ -141,6 +204,60 @@ async fn main() -> anyhow::Result<()> {
                 &to,
                 amount,
                 &password,
+            )
+            .await?;
+        }
+        WalletCommand::Stake {
+            from,
+            amount,
+            password,
+        } => {
+            commands::stake::send_stake(&cli.node, &cli.keystore, &from, amount, &password)
+                .await?;
+        }
+        WalletCommand::Unstake {
+            from,
+            amount,
+            password,
+        } => {
+            commands::stake::send_unstake(&cli.node, &cli.keystore, &from, amount, &password)
+                .await?;
+        }
+        WalletCommand::Deploy {
+            from,
+            wasm,
+            password,
+            gas_limit,
+        } => {
+            commands::contract::deploy_contract(
+                &cli.node,
+                &cli.keystore,
+                &from,
+                &wasm,
+                &password,
+                gas_limit,
+            )
+            .await?;
+        }
+        WalletCommand::Call {
+            from,
+            contract,
+            function,
+            args,
+            value,
+            password,
+            gas_limit,
+        } => {
+            commands::contract::call_contract(
+                &cli.node,
+                &cli.keystore,
+                &from,
+                &contract,
+                &function,
+                &args,
+                value,
+                &password,
+                gas_limit,
             )
             .await?;
         }

@@ -1,5 +1,6 @@
 use crate::config::ApiConfig;
 use crate::metrics::{metrics_handler, MetricsRegistry};
+use crate::middleware::auth::auth_middleware;
 use crate::middleware::rate_limit::{rate_limit_middleware, RateLimiter};
 use crate::routes;
 use crate::ws::handler::ws_upgrade;
@@ -66,15 +67,30 @@ impl ApiServer {
         let limiter = Arc::new(RateLimiter::new(self.config.rate_limit.clone()));
         let limiter_clone = limiter.clone();
 
-        // --- Build router ---
-        let mut app = Router::new()
+        // --- Read-only routes (no auth needed) ---
+        let read_routes = Router::new()
             .nest("/blocks", routes::blocks_router())
-            .nest("/tx", routes::transactions_router())
             .nest("/accounts", routes::accounts_router())
             .nest("/validators", routes::validators_router())
             .nest("/chain", routes::chain_router())
             .nest("/health", routes::health_router())
-            .route("/ws", get(ws_upgrade))
+            .nest("/receipts", routes::receipts_router())
+            .nest("/contracts", routes::contracts_router())
+            .route("/ws", get(ws_upgrade));
+
+        // --- Write routes (auth required when RBAC enabled) ---
+        let write_routes = if self.config.auth.enable_rbac {
+            let auth_config = Arc::new(self.config.auth.clone());
+            Router::new()
+                .nest("/tx", routes::transactions_router())
+                .layer(middleware::from_fn_with_state(auth_config, auth_middleware))
+        } else {
+            Router::new()
+                .nest("/tx", routes::transactions_router())
+        };
+
+        let mut app = read_routes
+            .merge(write_routes)
             .with_state(self.state.clone());
 
         // --- Metrics endpoint (separate state) ---

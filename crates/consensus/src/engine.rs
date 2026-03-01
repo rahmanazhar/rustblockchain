@@ -4,6 +4,7 @@ use crate::pos::ProposerSelection;
 use crate::slashing::Slasher;
 use crate::state::ChainState;
 use crate::tx_pool::TransactionPool;
+use dashmap::DashMap;
 use parking_lot::RwLock;
 use rustchain_core::*;
 use rustchain_crypto::{Blake3Hash, KeyPair};
@@ -66,7 +67,6 @@ pub struct ChainInfo {
 }
 
 /// The main consensus orchestrator.
-#[allow(dead_code)]
 pub struct ConsensusEngine {
     config: ConsensusConfig,
     chain_state: Arc<RwLock<ChainState>>,
@@ -77,6 +77,8 @@ pub struct ConsensusEngine {
     storage: Arc<ChainDatabase>,
     event_tx: broadcast::Sender<ConsensusEvent>,
     keypair: Option<KeyPair>,
+    /// Track blocks seen per (height, validator) for double-sign detection.
+    seen_blocks: DashMap<(BlockNumber, rustchain_crypto::Address), Blake3Hash>,
 }
 
 impl ConsensusEngine {
@@ -114,6 +116,7 @@ impl ConsensusEngine {
             storage,
             event_tx,
             keypair,
+            seen_blocks: DashMap::new(),
         })
     }
 
@@ -187,7 +190,7 @@ impl ConsensusEngine {
             number: next_number,
             timestamp,
             parent_hash: parent.hash(),
-            state_root: Blake3Hash::ZERO, // Will be updated after execution
+            state_root: Blake3Hash::ZERO,
             transactions_root,
             receipts_root: Blake3Hash::ZERO,
             validator: keypair.address(),
@@ -218,8 +221,11 @@ impl ConsensusEngine {
         let committed_hashes: Vec<Blake3Hash> = transactions.iter().map(|tx| tx.hash()).collect();
         self.tx_pool.prune_committed(&committed_hashes);
 
-        // Check for epoch transition
-        state.maybe_advance_epoch(&self.config.consensus_params)?;
+        // Check for epoch transition and update finality engine
+        if let Some(new_epoch) = state.maybe_advance_epoch(&self.config.consensus_params)? {
+            self.finality.update_validator_set(new_epoch.validator_set.clone());
+            let _ = self.event_tx.send(ConsensusEvent::EpochChanged(new_epoch));
+        }
         drop(state);
 
         // Create finality vote
@@ -260,6 +266,35 @@ impl ConsensusEngine {
         // Verify header signature
         block.header.verify_signature()?;
 
+        // Double-sign detection: check if we've seen a different block at the same
+        // height from the same validator
+        let block_hash = block.hash();
+        let key = (block.header.number, block.header.validator);
+        if let Some(prev_hash) = self.seen_blocks.get(&key) {
+            if *prev_hash != block_hash {
+                if let Some(evidence) = self.slasher.detect_double_sign(&prev_hash, &block_hash, block.header.number) {
+                    warn!(
+                        "Double-sign detected from validator {} at height {}",
+                        block.header.validator, block.header.number
+                    );
+                    // Apply slashing to the validator
+                    let state = self.chain_state.write();
+                    if let Some(vi) = state.current_epoch().validator_set.get_validator(&block.header.validator).cloned() {
+                        let mut vi_mut = vi;
+                        let current_time = chrono::Utc::now().timestamp_millis() as u64;
+                        if let Some(penalty) = self.slasher.evaluate_evidence(&evidence, &vi_mut) {
+                            let _ = self.slasher.apply_slash(&mut vi_mut, &penalty, current_time);
+                            let _ = self.storage.put_validator(&vi_mut);
+                        }
+                    }
+                    drop(state);
+                    return Err(ConsensusError::InvalidBlock("double-sign detected".to_string()));
+                }
+            }
+        } else {
+            self.seen_blocks.insert(key, block_hash);
+        }
+
         // Apply block
         let mut state = self.chain_state.write();
         let _receipts = state.apply_block(&block, &self.vm_engine)?;
@@ -268,8 +303,11 @@ impl ConsensusEngine {
         let hashes: Vec<Blake3Hash> = block.transactions.iter().map(|tx| tx.hash()).collect();
         self.tx_pool.prune_committed(&hashes);
 
-        // Check epoch transition
-        state.maybe_advance_epoch(&self.config.consensus_params)?;
+        // Check epoch transition and update finality engine
+        if let Some(new_epoch) = state.maybe_advance_epoch(&self.config.consensus_params)? {
+            self.finality.update_validator_set(new_epoch.validator_set.clone());
+            let _ = self.event_tx.send(ConsensusEvent::EpochChanged(new_epoch));
+        }
         drop(state);
 
         let _ = self.event_tx.send(ConsensusEvent::NewBlock(Box::new(block)));

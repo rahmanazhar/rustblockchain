@@ -24,7 +24,7 @@ pub enum NetworkMessage {
 }
 
 /// Status information about a peer.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct PeerStatus {
     pub chain_id: ChainId,
     pub best_block: BlockNumber,

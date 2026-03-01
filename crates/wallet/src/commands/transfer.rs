@@ -4,6 +4,17 @@ use rustchain_core::{Transaction, TxType, SignedTransaction};
 use rustchain_crypto::{Address, Keystore};
 use std::path::Path;
 
+/// Fetch chain_id from the node API.
+pub async fn fetch_chain_id(client: &NodeClient) -> Result<u64> {
+    let info: serde_json::Value = client.get_chain_info().await?;
+    let chain_id = info
+        .get("data")
+        .and_then(|d| d.get("chain_id"))
+        .and_then(|c| c.as_u64())
+        .unwrap_or(1);
+    Ok(chain_id)
+}
+
 /// Send tokens to another address.
 pub async fn send_transfer(
     node_url: &str,
@@ -23,6 +34,9 @@ pub async fn send_transfer(
     }
     let keypair = Keystore::load_from_file(&keyfile, password)?;
 
+    // Fetch chain_id from the node
+    let chain_id = fetch_chain_id(&client).await?;
+
     // Get nonce from the node
     let account_info: serde_json::Value = client.get_account(from_hex).await?;
     let nonce = account_info
@@ -35,7 +49,7 @@ pub async fn send_transfer(
 
     // Build transaction
     let tx = Transaction {
-        chain_id: 1, // Would be fetched from node in production
+        chain_id,
         nonce,
         from: from_addr,
         to: Some(to_addr),
@@ -51,6 +65,7 @@ pub async fn send_transfer(
 
     // Submit via API
     let body = serde_json::json!({
+        "chain_id": chain_id,
         "from": from_hex,
         "to": to_hex,
         "value": amount.to_string(),
@@ -59,6 +74,7 @@ pub async fn send_transfer(
         "nonce": nonce,
         "tx_type": "Transfer",
         "data": "",
+        "timestamp": signed.transaction.timestamp,
         "public_key": keypair.public_key().to_hex(),
         "signature": signed.signature.to_hex(),
     });

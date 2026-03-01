@@ -1,7 +1,7 @@
 use crate::config::NodeConfig;
 use rustchain_api::{metrics::MetricsRegistry, server::ApiServer};
-use rustchain_consensus::ConsensusEngine;
-use rustchain_network::{NetworkEvent, NetworkService};
+use rustchain_consensus::{ConsensusEngine, ConsensusEvent};
+use rustchain_network::{NetworkCommand, NetworkEvent, NetworkService};
 use rustchain_storage::ChainDatabase;
 use rustchain_vm::WasmEngine;
 use std::sync::Arc;
@@ -52,7 +52,7 @@ impl Application {
 
         // 5. Start network service
         info!("Starting network service");
-        let (network_service, mut network_events, _network_commands) =
+        let (network_service, mut network_events, network_commands) =
             NetworkService::new(self.config.network.clone())?;
 
         let network_shutdown = shutdown.clone();
@@ -72,7 +72,6 @@ impl Application {
             metrics.clone(),
         );
 
-        let _api_shutdown = shutdown.clone();
         let api_handle = tokio::spawn(async move {
             if let Err(e) = api_server.serve().await {
                 error!("API server error: {}", e);
@@ -88,7 +87,34 @@ impl Application {
             }
         });
 
-        // 8. Network event handler - forward events to consensus
+        // 8. Consensus event broadcaster - forward consensus events to the network
+        let mut consensus_events = consensus.subscribe();
+        let broadcast_shutdown = shutdown.clone();
+        let broadcast_commands = network_commands.clone();
+        let broadcast_handle = tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = broadcast_shutdown.cancelled() => break,
+                    event = consensus_events.recv() => {
+                        match event {
+                            Ok(ConsensusEvent::NewBlock(block)) => {
+                                let _ = broadcast_commands.send(NetworkCommand::BroadcastBlock(*block)).await;
+                            }
+                            Ok(ConsensusEvent::TransactionPooled(_)) => {
+                                // Individual tx broadcasts happen at submission time
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                                tracing::warn!("Broadcast subscriber lagged by {} events", n);
+                            }
+                            Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        });
+
+        // 9. Network event handler - forward network events to consensus
         let consensus_for_events = consensus.clone();
         let event_shutdown = shutdown.clone();
         let event_handle = tokio::spawn(async move {
@@ -140,6 +166,7 @@ impl Application {
             api_handle,
             consensus_handle,
             event_handle,
+            broadcast_handle,
         );
 
         // Flush storage
