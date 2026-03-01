@@ -140,15 +140,18 @@ async fn main() -> anyhow::Result<()> {
         }
         Commands::Keygen { output } => {
             let keypair = rustchain_crypto::KeyPair::generate();
-            let password = "changeme"; // In production, prompt interactively
 
-            rustchain_crypto::Keystore::save_to_file(&keypair, password, &output)?;
+            let password = dialoguer::Password::new()
+                .with_prompt("Enter password for keyfile encryption")
+                .with_confirmation("Confirm password", "Passwords do not match")
+                .interact()?;
+
+            rustchain_crypto::Keystore::save_to_file(&keypair, &password, &output)?;
 
             println!("Validator key generated:");
             println!("  Address: {}", keypair.address());
             println!("  Public key: {}", keypair.public_key());
             println!("  Keyfile: {:?}", output);
-            println!("  Password: {} (change in production!)", password);
         }
         Commands::Version => {
             println!("rustchain {}", env!("CARGO_PKG_VERSION"));

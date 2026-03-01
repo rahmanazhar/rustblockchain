@@ -150,6 +150,7 @@ impl WasmEngine {
     }
 
     /// Call a function on a deployed contract.
+    /// If the module is not in cache, attempts to reload from state (RocksDB).
     pub fn call_contract(
         &self,
         code_hash: &Blake3Hash,
@@ -157,11 +158,17 @@ impl WasmEngine {
         args: &[u8],
         context: &mut ExecutionContext,
     ) -> Result<CallResult, VmError> {
-        let module = self
-            .module_cache
-            .get(code_hash)
-            .map(|m| m.clone())
-            .ok_or_else(|| VmError::ContractNotFound(code_hash.to_hex()))?;
+        let module = if let Some(cached) = self.module_cache.get(code_hash) {
+            cached.clone()
+        } else {
+            // Cache miss: try to reload bytecode from storage
+            let bytecode = context
+                .state_reader
+                .get_code(code_hash)?
+                .ok_or_else(|| VmError::ContractNotFound(code_hash.to_hex()))?;
+            let (module, _) = self.compile_module(&bytecode)?;
+            module
+        };
 
         let gas_before = context.gas_meter.consumed();
 
@@ -523,13 +530,27 @@ impl WasmEngine {
             )
             .map_err(|e| VmError::Execution(e.to_string()))?;
 
-        // Abort
+        // Abort - traps the WASM instance via anyhow error
         linker
             .func_wrap(
                 "env",
                 "host_abort",
-                |_caller: Caller<'_, HostState>, _msg_ptr: i32, _msg_len: i32| {
-                    // The trap will be caught by the caller
+                |mut caller: Caller<'_, HostState>, msg_ptr: i32, msg_len: i32| -> anyhow::Result<()> {
+                    let message = if msg_len > 0 {
+                        let memory = match caller.get_export("memory") {
+                            Some(Extern::Memory(mem)) => mem,
+                            _ => anyhow::bail!("contract aborted"),
+                        };
+                        let mut buf = vec![0u8; msg_len as usize];
+                        if memory.read(&caller, msg_ptr as usize, &mut buf).is_ok() {
+                            String::from_utf8_lossy(&buf).to_string()
+                        } else {
+                            "contract aborted".to_string()
+                        }
+                    } else {
+                        "contract aborted".to_string()
+                    };
+                    anyhow::bail!("{}", message)
                 },
             )
             .map_err(|e| VmError::Execution(e.to_string()))?;

@@ -3945,6 +3945,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "dialoguer",
  "rustchain-api",
  "rustchain-consensus",
  "rustchain-core",
@@ -3999,6 +4000,7 @@ dependencies = [
 name = "rustchain-vm"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bincode",
  "bytes",
  "dashmap",

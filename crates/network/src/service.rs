@@ -193,8 +193,17 @@ impl NetworkService {
                                 let _ = swarm.behaviour_mut().gossipsub.publish(vote_topic.clone(), data);
                             }
                         }
+                        Some(NetworkCommand::RequestBlocks { peer, start, count }) => {
+                            info!("Block sync requested from peer {} (start={}, count={})", peer, start, count);
+                            // Block sync is handled at the application layer via the sync manager
+                        }
+                        Some(NetworkCommand::BanPeer(peer_id)) => {
+                            info!("Banning peer: {}", peer_id);
+                            swarm.behaviour_mut().gossipsub.blacklist_peer(&peer_id);
+                            self.connected_peers.remove(&peer_id);
+                            let _ = swarm.disconnect_peer_id(peer_id);
+                        }
                         Some(NetworkCommand::Shutdown) | None => break,
-                        _ => {}
                     }
                 }
                 event = swarm.select_next_some() => {
@@ -223,11 +232,12 @@ impl NetworkService {
                             info!("Listening on {}/p2p/{}", address, self.local_peer_id);
                         }
                         SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                            info!("Connected to peer: {}", peer_id);
+                            info!("Connected to peer: {} (total: {})", peer_id, self.connected_peers.len() + 1);
+                            self.connected_peers.insert(peer_id, PeerStatus::default());
                             let _ = self.event_tx.send(NetworkEvent::PeerConnected(peer_id)).await;
                         }
                         SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                            info!("Disconnected from peer: {}", peer_id);
+                            info!("Disconnected from peer: {} (total: {})", peer_id, self.connected_peers.len().saturating_sub(1));
                             self.connected_peers.remove(&peer_id);
                             let _ = self.event_tx.send(NetworkEvent::PeerDisconnected(peer_id)).await;
                         }
