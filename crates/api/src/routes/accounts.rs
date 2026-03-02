@@ -51,6 +51,6 @@ async fn get_balance(
 
 pub fn accounts_router() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/{addr}", get(get_account))
-        .route("/{addr}/balance", get(get_balance))
+        .route("/:addr", get(get_account))
+        .route("/:addr/balance", get(get_balance))
 }

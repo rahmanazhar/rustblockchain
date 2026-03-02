@@ -51,5 +51,5 @@ async fn get_receipt(
 }
 
 pub fn receipts_router() -> Router<Arc<AppState>> {
-    Router::new().route("/{hash}", get(get_receipt))
+    Router::new().route("/:hash", get(get_receipt))
 }

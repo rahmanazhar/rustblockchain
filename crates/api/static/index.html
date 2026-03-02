@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RustChain Explorer</title>
+<style>
+:root {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111827;
+  --bg-card: #1a2233;
+  --bg-card-hover: #1f2a3d;
+  --bg-input: #0d1421;
+  --border: #2a3548;
+  --border-hover: #3b4a63;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-glow: rgba(59,130,246,0.15);
+  --success: #10b981;
+  --success-bg: rgba(16,185,129,0.1);
+  --danger: #ef4444;
+  --danger-bg: rgba(239,68,68,0.1);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,0.1);
+  --purple: #8b5cf6;
+  --purple-bg: rgba(139,92,246,0.1);
+  --font-mono: 'SF Mono','Cascadia Code','Fira Code',Consolas,monospace;
+  --font-sans: -apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --transition: 0.2s ease;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-primary);min-height:100vh;line-height:1.6}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg-primary)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.header{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.header-left{display:flex;align-items:center;gap:14px}
+.logo{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:700;color:var(--text-primary);text-decoration:none;cursor:pointer}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,var(--accent),var(--purple));border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:800}
+.chain-badge{font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-glow);border:1px solid rgba(59,130,246,0.3);padding:2px 8px;border-radius:12px}
+.header-right{display:flex;align-items:center;gap:10px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.status-text{font-size:13px;color:var(--text-secondary)}
+.nav{background:var(--bg-secondary);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:0;overflow-x:auto}
+.nav-item{padding:11px 18px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:var(--transition);white-space:nowrap;user-select:none}
+.nav-item:hover{color:var(--text-secondary);background:rgba(255,255,255,0.02)}
+.nav-item.active{color:var(--accent);border-bottom-color:var(--accent)}
+.nav-item.wallet-nav{margin-left:auto;color:var(--purple)}
+.nav-item.wallet-nav.active{color:var(--purple);border-bottom-color:var(--purple)}
+.search-bar{padding:16px 24px;max-width:1400px;margin:0 auto}
+.search-wrapper{position:relative;display:flex;align-items:center}
+.search-icon{position:absolute;left:14px;color:var(--text-muted);font-size:14px;pointer-events:none}
+.search-input{width:100%;padding:12px 14px 12px 40px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-size:14px;font-family:var(--font-mono);outline:none;transition:var(--transition)}
+.search-input::placeholder{color:var(--text-muted);font-family:var(--font-sans)}
+.search-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.main{max-width:1400px;margin:0 auto;padding:0 24px 40px}
+.page{display:none}.page.active{display:block}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;transition:var(--transition)}
+.stat-card:hover{border-color:var(--border-hover);background:var(--bg-card-hover)}
+.stat-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);margin-bottom:6px}
+.stat-value{font-size:26px;font-weight:700;font-family:var(--font-mono)}
+.stat-value.accent{color:var(--accent)}.stat-value.success{color:var(--success)}.stat-value.purple{color:var(--purple)}
+.stat-sub{font-size:11px;color:var(--text-muted);margin-top:3px}
+.section{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;overflow:hidden}
+.section-header{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:15px;font-weight:600}
+.table-wrapper{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{padding:10px 14px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);border-bottom:1px solid var(--border);background:rgba(0,0,0,0.15);white-space:nowrap}
+td{padding:10px 14px;border-bottom:1px solid rgba(42,53,72,0.5);font-size:13px;vertical-align:middle}
+tr:hover td{background:rgba(255,255,255,0.015)}
+tr:last-child td{border-bottom:none}
+.mono{font-family:var(--font-mono);font-size:13px}
+.hash-link{color:var(--accent);text-decoration:none;cursor:pointer;font-family:var(--font-mono);font-size:13px}
+.hash-link:hover{text-decoration:underline}
+.truncate{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle}
+.badge{display:inline-block;padding:2px 9px;border-radius:12px;font-size:11px;font-weight:600}
+.badge-success{color:var(--success);background:var(--success-bg)}
+.badge-danger{color:var(--danger);background:var(--danger-bg)}
+.badge-warning{color:var(--warning);background:var(--warning-bg)}
+.badge-info{color:var(--accent);background:var(--accent-glow)}
+.badge-purple{color:var(--purple);background:var(--purple-bg)}
+.detail-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+.detail-row{display:flex;border-bottom:1px solid rgba(42,53,72,0.5);min-height:44px}
+.detail-row:last-child{border-bottom:none}
+.detail-label{width:180px;min-width:180px;padding:10px 14px;font-size:12px;font-weight:600;color:var(--text-muted);background:rgba(0,0,0,0.1);display:flex;align-items:center}
+.detail-value{flex:1;padding:10px 14px;font-size:13px;word-break:break-all;display:flex;align-items:center}
+.live-feed{max-height:380px;overflow-y:auto}
+.feed-item{padding:10px 18px;border-bottom:1px solid rgba(42,53,72,0.5);display:flex;align-items:center;gap:14px;transition:var(--transition);animation:fadeIn .3s ease;cursor:pointer}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.feed-item:hover{background:rgba(255,255,255,0.015)}
+.feed-block-num{font-family:var(--font-mono);font-weight:700;font-size:14px;color:var(--accent);min-width:70px}
+.feed-meta{flex:1;display:flex;flex-direction:column;gap:1px}
+.feed-hash{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)}
+.feed-detail{font-size:11px;color:var(--text-muted)}
+.feed-time{font-size:11px;color:var(--text-muted);font-family:var(--font-mono);min-width:60px;text-align:right}
+.pagination{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px}
+.page-btn{padding:7px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:12px;cursor:pointer;transition:var(--transition)}
+.page-btn:hover{border-color:var(--accent);color:var(--accent)}
+.page-btn:disabled{opacity:.3;cursor:not-allowed}
+.page-btn:disabled:hover{border-color:var(--border);color:var(--text-secondary)}
+.page-info{font-size:12px;color:var(--text-muted);padding:0 10px}
+.back-btn{display:inline-flex;align-items:center;gap:5px;padding:7px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-secondary);font-size:12px;cursor:pointer;transition:var(--transition);margin-bottom:14px}
+.back-btn:hover{border-color:var(--accent);color:var(--accent)}
+.vbar{height:5px;background:var(--bg-input);border-radius:3px;overflow:hidden;min-width:80px}
+.vbar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--purple));transition:width .5s ease}
+.loading{display:flex;align-items:center;justify-content:center;padding:50px 20px;color:var(--text-muted);font-size:13px;gap:8px}
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{padding:14px 18px;color:var(--danger);background:var(--danger-bg);border:1px solid rgba(239,68,68,0.2);border-radius:var(--radius-sm);font-size:13px;margin:14px 0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.wallet-tabs{display:flex;gap:0;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;margin-bottom:0}
+.wallet-tab{padding:10px 18px;font-size:13px;font-weight:500;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:var(--transition);flex:1;text-align:center}
+.wallet-tab:hover{color:var(--text-secondary);background:rgba(255,255,255,0.02)}
+.wallet-tab.active{color:var(--purple);border-bottom-color:var(--purple);background:rgba(139,92,246,0.05)}
+.wallet-panel{display:none}.wallet-panel.active{display:block}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:12px;font-weight:500;color:var(--text-secondary);margin-bottom:5px}
+.form-input{width:100%;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);font-size:13px;font-family:var(--font-mono);outline:none;transition:var(--transition)}
+.form-input:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-glow)}
+.form-input::placeholder{color:var(--text-muted);font-family:var(--font-sans)}
+textarea.form-input{resize:vertical;font-size:12px}
+select.form-input{font-family:var(--font-sans)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.btn{padding:10px 20px;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;transition:var(--transition)}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:var(--accent-hover)}
+.btn-secondary{background:var(--bg-card);color:var(--text-secondary);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(239,68,68,0.3)}
+.btn-danger:hover{border-color:var(--danger)}
+.mnemonic-box{background:var(--bg-input);border:2px solid var(--warning);border-radius:var(--radius);padding:16px;font-family:var(--font-mono);font-size:14px;line-height:2;word-spacing:8px;color:var(--warning)}
+.tx-success{background:var(--success-bg);border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius-sm);padding:14px}
+.tx-error{background:var(--danger-bg);border:1px solid rgba(239,68,68,0.3);border-radius:var(--radius-sm);padding:14px;color:var(--danger)}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}.detail-row{flex-direction:column}.detail-label{width:100%;min-width:100%}.truncate{max-width:110px}.form-row{grid-template-columns:1fr}}
+@media(max-width:500px){.stats-grid{grid-template-columns:1fr}.stat-value{font-size:20px}.header-right .status-text{display:none}}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-left">
+    <a class="logo" onclick="navigate('overview')"><div class="logo-icon">R</div><span>RustChain</span></a>
+    <span class="chain-badge" id="chainBadge">LOADING</span>
+  </div>
+  <div class="header-right">
+    <div class="status-dot" id="statusDot"></div>
+    <span class="status-text" id="statusText">Connecting...</span>
+  </div>
+</header>
+<nav class="nav">
+  <div class="nav-item active" data-page="overview" onclick="navigate('overview')">Overview</div>
+  <div class="nav-item" data-page="blocks" onclick="navigate('blocks')">Blocks</div>
+  <div class="nav-item" data-page="transactions" onclick="navigate('transactions')">Transactions</div>
+  <div class="nav-item" data-page="validators" onclick="navigate('validators')">Validators</div>
+  <div class="nav-item" data-page="accounts" onclick="navigate('accounts')">Accounts</div>
+  <div class="nav-item" data-page="contracts" onclick="navigate('contracts')">Contracts</div>
+  <div class="nav-item wallet-nav" data-page="wallet" onclick="navigate('wallet')">Wallet</div>
+</nav>
+<div class="search-bar">
+  <div class="search-wrapper">
+    <span class="search-icon">&#x1F50D;</span>
+    <input class="search-input" id="searchInput" type="text" placeholder="Search by block number, tx hash, or address..." onkeydown="if(event.key==='Enter')doSearch()">
+  </div>
+</div>
+<main class="main">
+<!-- OVERVIEW -->
+<div class="page active" id="page-overview">
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Block Height</div><div class="stat-value accent" id="statHeight">--</div><div class="stat-sub" id="statHeightSub">loading...</div></div>
+    <div class="stat-card"><div class="stat-label">Finalized</div><div class="stat-value success" id="statFinalized">--</div><div class="stat-sub">finalized height</div></div>
+    <div class="stat-card"><div class="stat-label">Epoch</div><div class="stat-value purple" id="statEpoch">--</div><div class="stat-sub">current epoch</div></div>
+    <div class="stat-card"><div class="stat-label">Validators</div><div class="stat-value" id="statValidators">--</div><div class="stat-sub">active validators</div></div>
+    <div class="stat-card"><div class="stat-label">Pending TXs</div><div class="stat-value" id="statPending">--</div><div class="stat-sub">in mempool</div></div>
+    <div class="stat-card"><div class="stat-label">Chain ID</div><div class="stat-value" id="statChainId">--</div><div class="stat-sub" id="statChainName">loading...</div></div>
+  </div>
+  <div class="two-col">
+    <div class="section"><div class="section-header"><span class="section-title">Latest Blocks</span><span class="badge badge-success" id="liveBadge">LIVE</span></div><div class="live-feed" id="blockFeed"></div></div>
+    <div class="section"><div class="section-header"><span class="section-title">Chain Status</span></div><div style="padding:18px" id="chainStatusPanel"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+  </div>
+</div>
+<!-- BLOCKS -->
+<div class="page" id="page-blocks">
+  <div class="section"><div class="section-header"><span class="section-title">All Blocks</span></div>
+    <div class="table-wrapper"><table><thead><tr><th>Block</th><th>Hash</th><th>Validator</th><th>Txs</th><th>Gas</th><th>Time</th></tr></thead>
+    <tbody id="blocksTableBody"><tr><td colspan="6"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr></tbody></table></div>
+    <div class="pagination"><button class="page-btn" id="blocksPrev" onclick="loadBlocks(blocksPage-1)" disabled>&larr; Prev</button><span class="page-info" id="blocksPageInfo">Page 1</span><button class="page-btn" id="blocksNext" onclick="loadBlocks(blocksPage+1)">Next &rarr;</button></div></div>
+</div>
+<!-- BLOCK DETAIL -->
+<div class="page" id="page-block-detail"><button class="back-btn" onclick="navigate('blocks')">&larr; Back to Blocks</button><div id="blockDetailContent"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+<!-- TRANSACTIONS -->
+<div class="page" id="page-transactions">
+  <div class="section"><div class="section-header"><span class="section-title">Recent Transactions</span></div>
+    <div class="table-wrapper"><table><thead><tr><th>Tx Hash</th><th>Block</th><th>From</th><th>To</th><th>Value</th><th>Type</th><th>Status</th></tr></thead>
+    <tbody id="txTableBody"><tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted)">Transactions from recent blocks will appear here.</td></tr></tbody></table></div></div>
+</div>
+<!-- TX DETAIL -->
+<div class="page" id="page-tx-detail"><button class="back-btn" onclick="navigate('transactions')">&larr; Back</button><div id="txDetailContent"><div class="loading"><div class="spinner"></div> Loading...</div></div></div>
+<!-- VALIDATORS -->
+<div class="page" id="page-validators">
+  <div class="section"><div class="section-header"><span class="section-title">Validator Set</span><span class="badge badge-info" id="validatorCount">0</span></div>
+    <div class="table-wrapper"><table><thead><tr><th>#</th><th>Address</th><th>Stake</th><th>Share</th><th>Status</th><th>Commission</th><th>Slashes</th></tr></thead>
+    <tbody id="validatorsTableBody"><tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr></tbody></table></div></div>
+</div>
+<!-- ACCOUNTS -->
+<div class="page" id="page-accounts">
+  <div class="section"><div class="section-header"><span class="section-title">Account Lookup</span></div><div style="padding:20px"><div class="search-wrapper"><span class="search-icon">&#x1F464;</span><input class="search-input" id="accountInput" type="text" placeholder="Enter account address (hex)..." onkeydown="if(event.key==='Enter')lookupAccount()"></div></div></div>
+  <div id="accountResult"></div>
+</div>
+<!-- CONTRACTS -->
+<div class="page" id="page-contracts">
+  <div class="section"><div class="section-header"><span class="section-title">Contract Lookup</span></div><div style="padding:20px"><div class="search-wrapper"><span class="search-icon">&#x1F4DC;</span><input class="search-input" id="contractInput" type="text" placeholder="Enter contract address (hex)..." onkeydown="if(event.key==='Enter')lookupContract()"></div></div></div>
+  <div id="contractResult"></div>
+</div>
+<!-- WALLET -->
+<div class="page" id="page-wallet">
+  <div class="section"><div class="section-header"><span class="section-title">Wallet</span><span class="badge" id="walletBadge" style="background:var(--danger-bg);color:var(--danger)">No Account</span></div>
+    <div id="walletAccountPanel" style="padding:18px"><div style="text-align:center;color:var(--text-muted);padding:16px">Create or import an account in the Manage tab.</div></div></div>
+  <div class="wallet-tabs">
+    <div class="wallet-tab active" data-wtab="manage" onclick="showWalletTab('manage')">Manage</div>
+    <div class="wallet-tab" data-wtab="send" onclick="showWalletTab('send')">Send</div>
+    <div class="wallet-tab" data-wtab="stake" onclick="showWalletTab('stake')">Stake</div>
+    <div class="wallet-tab" data-wtab="wcontracts" onclick="showWalletTab('wcontracts')">Contracts</div>
+  </div>
+  <!-- Manage -->
+  <div class="wallet-panel active" id="wtab-manage">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)">
+      <div class="section-header"><span class="section-title">Create New Account</span></div>
+      <div style="padding:18px">
+        <div class="form-row"><div class="form-group"><label class="form-label">Password</label><input class="form-input" id="createPw" type="password" placeholder="Choose a password"></div><div class="form-group"><label class="form-label">Confirm Password</label><input class="form-input" id="createPw2" type="password" placeholder="Confirm password"></div></div>
+        <div class="form-group"><label class="form-label">Mnemonic Length</label><select class="form-input" id="createWords" style="width:auto"><option value="12">12 words</option><option value="24">24 words</option></select></div>
+        <button class="btn btn-primary" onclick="doCreateAccount()">Create Account</button>
+        <div id="createResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section"><div class="section-header"><span class="section-title">Import Account</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Import Method</label><select class="form-input" id="importMethod" style="width:auto" onchange="toggleImportMethod()"><option value="mnemonic">Mnemonic Phrase</option><option value="privatekey">Private Key (hex)</option></select></div>
+        <div class="form-group" id="importMnemonicGroup"><label class="form-label">Mnemonic Phrase</label><textarea class="form-input" id="importMnemonic" rows="2" placeholder="word1 word2 word3 ..."></textarea></div>
+        <div class="form-group" id="importPrivKeyGroup" style="display:none"><label class="form-label">Private Key (hex)</label><input class="form-input" id="importPrivKey" type="text" placeholder="64 hex chars"></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="importPw" type="password" placeholder="Password for keystore"></div>
+        <button class="btn btn-primary" onclick="doImportAccount()">Import Account</button>
+        <div id="importResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section"><div class="section-header"><span class="section-title">Saved Accounts</span></div><div id="savedAccountsList" style="padding:18px"><div style="color:var(--text-muted)">No saved accounts.</div></div></div>
+  </div>
+  <!-- Send -->
+  <div class="wallet-panel" id="wtab-send">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)"><div class="section-header"><span class="section-title">Send Transfer</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Recipient Address</label><input class="form-input" id="sendTo" type="text" placeholder="0x..."></div>
+        <div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="sendValue" type="text" placeholder="Amount in smallest unit"></div>
+        <div class="form-row"><div class="form-group"><label class="form-label">Gas Limit</label><input class="form-input" id="sendGasLimit" type="number" value="21000"></div><div class="form-group"><label class="form-label">Gas Price</label><input class="form-input" id="sendGasPrice" type="number" value="1"></div></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="sendPw" type="password" placeholder="Keystore password"></div>
+        <button class="btn btn-primary" onclick="doSendTransfer()">Send Transaction</button>
+        <div id="sendResult" style="margin-top:14px"></div>
+      </div></div>
+  </div>
+  <!-- Stake -->
+  <div class="wallet-panel" id="wtab-stake">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)"><div class="section-header"><span class="section-title">Stake Tokens</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Amount to Stake</label><input class="form-input" id="stakeValue" type="text" placeholder="Amount"></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="stakePw" type="password" placeholder="Keystore password"></div>
+        <button class="btn btn-primary" onclick="doStake()">Stake</button>
+        <div id="stakeResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section"><div class="section-header"><span class="section-title">Unstake Tokens</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Amount to Unstake</label><input class="form-input" id="unstakeValue" type="text" placeholder="Amount"></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="unstakePw" type="password" placeholder="Keystore password"></div>
+        <button class="btn btn-danger" onclick="doUnstake()">Unstake</button>
+        <div id="unstakeResult" style="margin-top:14px"></div>
+      </div></div>
+  </div>
+  <!-- Contracts -->
+  <div class="wallet-panel" id="wtab-wcontracts">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)"><div class="section-header"><span class="section-title">Deploy Contract</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">WASM Bytecode (hex)</label><textarea class="form-input" id="deployBytecode" rows="3" placeholder="Paste hex-encoded WASM bytecode..."></textarea>
+          <div style="margin-top:6px"><label class="btn btn-secondary" style="cursor:pointer;display:inline-block">Select .wasm file<input type="file" id="deployFile" accept=".wasm" style="display:none" onchange="loadWasmFile(this)"></label></div></div>
+        <div class="form-row"><div class="form-group"><label class="form-label">Gas Limit</label><input class="form-input" id="deployGas" type="number" value="1000000"></div><div class="form-group"><label class="form-label">Password</label><input class="form-input" id="deployPw" type="password" placeholder="Keystore password"></div></div>
+        <button class="btn btn-primary" onclick="doDeploy()">Deploy Contract</button>
+        <div id="deployResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section"><div class="section-header"><span class="section-title">Call Contract</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Contract Address</label><input class="form-input" id="callAddr" type="text" placeholder="0x..."></div>
+        <div class="form-group"><label class="form-label">Function Name</label><input class="form-input" id="callFunc" type="text" placeholder="e.g. transfer_tokens"></div>
+        <div class="form-group"><label class="form-label">Arguments (hex, optional)</label><input class="form-input" id="callArgs" type="text" placeholder="0x..."></div>
+        <div class="form-row"><div class="form-group"><label class="form-label">Value</label><input class="form-input" id="callValue" type="text" value="0"></div><div class="form-group"><label class="form-label">Gas Limit</label><input class="form-input" id="callGas" type="number" value="500000"></div></div>
+        <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="callPw" type="password" placeholder="Keystore password"></div>
+        <button class="btn btn-primary" onclick="doCall()">Call Contract</button>
+        <div id="callResult" style="margin-top:14px"></div>
+      </div></div>
+  </div>
+</div>
+</main>
+<script>
+const API=window.location.origin;let wsConn=null,blocksPage=1,chainInfo=null,recentBlocks=[],activeWallet=null;const BPP=15,WK='rustchain_wallets',AWK='rustchain_active_wallet';
+function navigate(p){document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));const el=document.getElementById('page-'+p);if(el)el.classList.add('active');const n=document.querySelector('.nav-item[data-page="'+p+'"]');if(n)n.classList.add('active');if(p==='blocks')loadBlocks(1);if(p==='validators')loadValidators();if(p==='transactions')loadRecentTransactions();if(p==='wallet'){loadActiveWallet();renderSavedAccounts()}}
+function navRaw(p){document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));const el=document.getElementById('page-'+p);if(el)el.classList.add('active')}
+function doSearch(){const q=document.getElementById('searchInput').value.trim();if(!q)return;if(/^\d+$/.test(q)){viewBlock(q);return}const c=q.replace(/^0x/,'');if(/^[a-fA-F0-9]{64}$/.test(c)){fetchJSON('/tx/'+c).then(r=>{r&&r.success?viewTx(c):viewBlock('0x'+c)}).catch(()=>viewBlock('0x'+c));return}if(/^[a-fA-F0-9]{40}$/.test(c)){document.getElementById('accountInput').value=c;navigate('accounts');lookupAccount();return}viewBlock(q)}
+async function fetchJSON(p){const r=await fetch(API+p);const t=await r.text();if(!t)return{success:false,error:'Empty response ('+r.status+')'};try{return JSON.parse(t)}catch(e){return{success:false,error:'Invalid JSON: '+t.substring(0,100)}}}
+async function postJSON(p,b){const r=await fetch(API+p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)});const t=await r.text();if(!t)return{success:false,error:'Empty response ('+r.status+')'};try{return JSON.parse(t)}catch(e){return{success:false,error:'Invalid JSON: '+t.substring(0,100)}}}
+async function loadChainInfo(){try{const r=await fetchJSON('/chain/info');if(!r.success)return;chainInfo=r.data;document.getElementById('statHeight').textContent=chainInfo.height.toLocaleString();document.getElementById('statHeightSub').textContent='best block';document.getElementById('statFinalized').textContent=chainInfo.finalized_height.toLocaleString();document.getElementById('statEpoch').textContent=chainInfo.epoch;document.getElementById('statValidators').textContent=chainInfo.active_validators;document.getElementById('statPending').textContent=chainInfo.pending_transactions;document.getElementById('statChainId').textContent=chainInfo.chain_id;document.getElementById('chainBadge').textContent='CHAIN '+chainInfo.chain_id;document.getElementById('statusDot').style.background='var(--success)';document.getElementById('statusDot').style.boxShadow='0 0 8px var(--success)';document.getElementById('statusText').textContent='Height #'+chainInfo.height.toLocaleString();updateStatusPanel()}catch(e){document.getElementById('statusDot').style.background='var(--danger)';document.getElementById('statusText').textContent='Disconnected'}}
+function updateStatusPanel(){if(!chainInfo)return;const g=chainInfo.height-chainInfo.finalized_height;document.getElementById('chainStatusPanel').innerHTML='<div style="display:flex;flex-direction:column;gap:14px"><div class="detail-row" style="border-radius:var(--radius-sm);border:1px solid var(--border);overflow:hidden"><div class="detail-label">Best Hash</div><div class="detail-value mono" style="font-size:11px">'+(chainInfo.best_block_hash||'--')+'</div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div style="background:var(--bg-input);border-radius:var(--radius-sm);padding:12px"><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Finality Gap</div><div style="font-size:18px;font-weight:700;color:'+(g===0?'var(--success)':'var(--warning)')+'">'+g+' blocks</div></div><div style="background:var(--bg-input);border-radius:var(--radius-sm);padding:12px"><div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Mempool</div><div style="font-size:18px;font-weight:700">'+chainInfo.pending_transactions+' txs</div></div></div></div>'}
+async function loadLatestBlocks(){try{const r=await fetchJSON('/blocks?page=1&per_page=10');if(r.success){recentBlocks=r.data;renderBlockFeed()}}catch(e){}}
+function renderBlockFeed(){const f=document.getElementById('blockFeed');if(!recentBlocks.length){f.innerHTML='<div class="loading">No blocks yet</div>';return}f.innerHTML=recentBlocks.map(b=>'<div class="feed-item" onclick="viewBlock('+b.number+')"><div class="feed-block-num">#'+b.number.toLocaleString()+'</div><div class="feed-meta"><div class="feed-hash">'+trunc(b.hash)+'</div><div class="feed-detail">'+b.tx_count+' txs &middot; '+b.gas_used.toLocaleString()+' gas</div></div><div class="feed-time">'+timeAgo(b.timestamp)+'</div></div>').join('')}
+async function loadBlocks(p){if(p<1)return;blocksPage=p;const tb=document.getElementById('blocksTableBody');tb.innerHTML='<tr><td colspan="6"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>';try{const r=await fetchJSON('/blocks?page='+p+'&per_page='+BPP);if(!r.success||!r.data.length){tb.innerHTML='<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text-muted)">No blocks</td></tr>';return}tb.innerHTML=r.data.map(b=>'<tr onclick="viewBlock('+b.number+')" style="cursor:pointer"><td><span class="mono" style="font-weight:700;color:var(--accent)">'+b.number.toLocaleString()+'</span></td><td><span class="hash-link truncate">'+b.hash+'</span></td><td><span class="mono truncate" style="max-width:110px">'+b.validator+'</span></td><td class="mono">'+b.tx_count+'</td><td class="mono">'+b.gas_used.toLocaleString()+'</td><td style="color:var(--text-muted);font-size:12px">'+timeAgo(b.timestamp)+'</td></tr>').join('');document.getElementById('blocksPrev').disabled=p<=1;document.getElementById('blocksNext').disabled=r.data.length<BPP;document.getElementById('blocksPageInfo').textContent='Page '+p}catch(e){tb.innerHTML='<tr><td colspan="6"><div class="error-msg">'+e.message+'</div></td></tr>'}}
+async function viewBlock(id){navRaw('block-detail');const c=document.getElementById('blockDetailContent');c.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';try{const r=await fetchJSON('/blocks/'+id);if(!r.success){c.innerHTML='<div class="error-msg">Block not found</div>';return}const b=r.data;c.innerHTML='<h2 style="margin-bottom:14px;font-size:18px">Block #'+b.number.toLocaleString()+'</h2><div class="detail-card"><div class="detail-row"><div class="detail-label">Block Number</div><div class="detail-value mono" style="font-weight:700;color:var(--accent)">'+b.number.toLocaleString()+'</div></div><div class="detail-row"><div class="detail-label">Hash</div><div class="detail-value mono" style="font-size:11px">'+b.hash+'</div></div><div class="detail-row"><div class="detail-label">Parent Hash</div><div class="detail-value mono" style="font-size:11px">'+b.parent_hash+'</div></div><div class="detail-row"><div class="detail-label">Timestamp</div><div class="detail-value">'+new Date(b.timestamp).toLocaleString()+' <span style="color:var(--text-muted);margin-left:6px">('+timeAgo(b.timestamp)+')</span></div></div><div class="detail-row"><div class="detail-label">Validator</div><div class="detail-value"><span class="hash-link" onclick="lookupAddr(\''+(b.validator||'').replace('0x','')+'\')">'+b.validator+'</span></div></div><div class="detail-row"><div class="detail-label">Epoch</div><div class="detail-value mono">'+b.epoch+'</div></div><div class="detail-row"><div class="detail-label">Transactions</div><div class="detail-value mono">'+b.tx_count+'</div></div><div class="detail-row"><div class="detail-label">Gas Used / Limit</div><div class="detail-value mono">'+b.gas_used.toLocaleString()+' / '+b.gas_limit.toLocaleString()+'</div></div><div class="detail-row"><div class="detail-label">State Root</div><div class="detail-value mono" style="font-size:11px">'+b.state_root+'</div></div></div>'+(b.transactions&&b.transactions.length?'<div class="section"><div class="section-header"><span class="section-title">Transactions ('+b.transactions.length+')</span></div><div class="table-wrapper"><table><thead><tr><th>Hash</th><th>From</th><th>To</th><th>Value</th><th>Type</th></tr></thead><tbody>'+b.transactions.map(t=>'<tr onclick="viewTx(\''+(t.tx_hash||t.hash)+'\')" style="cursor:pointer"><td><span class="hash-link truncate">'+(t.tx_hash||t.hash||'--')+'</span></td><td><span class="mono truncate" style="max-width:110px">'+(t.from||'--')+'</span></td><td><span class="mono truncate" style="max-width:110px">'+(t.to||'Contract')+'</span></td><td class="mono">'+(t.value||'0')+'</td><td><span class="badge badge-info">'+(t.tx_type||'--')+'</span></td></tr>').join('')+'</tbody></table></div></div>':'')}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function viewTx(h){navRaw('tx-detail');const c=document.getElementById('txDetailContent');c.innerHTML='<div class="loading"><div class="spinner"></div> Loading...</div>';const cl=h.replace(/^0x/,'');try{const r=await fetchJSON('/tx/'+cl);if(!r.success){c.innerHTML='<div class="error-msg">Transaction not found</div>';return}const tx=r.data;let receipt=null;try{const rr=await fetchJSON('/receipts/'+cl);if(rr.success)receipt=rr.data}catch(e){}c.innerHTML='<h2 style="margin-bottom:14px;font-size:18px">Transaction</h2><div class="detail-card"><div class="detail-row"><div class="detail-label">Hash</div><div class="detail-value mono" style="font-size:11px">'+(tx.tx_hash||cl)+'</div></div><div class="detail-row"><div class="detail-label">Type</div><div class="detail-value"><span class="badge badge-info">'+(tx.tx_type||'--')+'</span></div></div><div class="detail-row"><div class="detail-label">From</div><div class="detail-value"><span class="hash-link" onclick="lookupAddr(\''+(tx.from||'').replace('0x','')+'\')">'+( tx.from||'--')+'</span></div></div><div class="detail-row"><div class="detail-label">To</div><div class="detail-value">'+(tx.to?'<span class="hash-link" onclick="lookupAddr(\''+tx.to.replace('0x','')+'\')">'+tx.to+'</span>':'<span class="badge badge-purple">Contract Creation</span>')+'</div></div><div class="detail-row"><div class="detail-label">Value</div><div class="detail-value mono">'+(tx.value||'0')+'</div></div><div class="detail-row"><div class="detail-label">Nonce</div><div class="detail-value mono">'+(tx.nonce??'--')+'</div></div><div class="detail-row"><div class="detail-label">Gas Limit / Price</div><div class="detail-value mono">'+(tx.gas_limit||0).toLocaleString()+' / '+(tx.gas_price||'--')+'</div></div><div class="detail-row"><div class="detail-label">Chain ID</div><div class="detail-value mono">'+(tx.chain_id||'--')+'</div></div></div>'+(receipt?'<h3 style="margin:14px 0;font-size:15px">Receipt</h3><div class="detail-card"><div class="detail-row"><div class="detail-label">Status</div><div class="detail-value"><span class="badge '+(receipt.status==='Success'?'badge-success':'badge-danger')+'">'+receipt.status+'</span></div></div><div class="detail-row"><div class="detail-label">Block</div><div class="detail-value"><span class="hash-link" onclick="viewBlock('+receipt.block_number+')">'+receipt.block_number+'</span></div></div><div class="detail-row"><div class="detail-label">Gas Used</div><div class="detail-value mono">'+(receipt.gas_used||0).toLocaleString()+'</div></div><div class="detail-row"><div class="detail-label">Logs</div><div class="detail-value mono">'+(receipt.logs_count||0)+'</div></div>'+(receipt.contract_address?'<div class="detail-row"><div class="detail-label">Contract</div><div class="detail-value"><span class="hash-link" onclick="lookupContractAddr(\''+receipt.contract_address+'\')">'+receipt.contract_address+'</span></div></div>':'')+'</div>':'')}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function loadValidators(){const tb=document.getElementById('validatorsTableBody');tb.innerHTML='<tr><td colspan="7"><div class="loading"><div class="spinner"></div> Loading...</div></td></tr>';try{const r=await fetchJSON('/validators');if(!r.success||!r.data.length){tb.innerHTML='<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted)">No validators</td></tr>';return}const ts=r.data.reduce((s,v)=>s+BigInt(v.stake),0n);document.getElementById('validatorCount').textContent=r.data.length+' validator'+(r.data.length>1?'s':'');tb.innerHTML=r.data.map((v,i)=>{const st=BigInt(v.stake),pct=ts>0n?Number(st*10000n/ts)/100:0;return'<tr><td class="mono" style="font-weight:700">'+(i+1)+'</td><td><span class="hash-link truncate" onclick="lookupAddr(\''+v.address.replace('0x','')+'\')">'+v.address+'</span></td><td class="mono">'+fmtStake(v.stake)+'</td><td><div style="display:flex;align-items:center;gap:6px"><div class="vbar" style="width:70px"><div class="vbar-fill" style="width:'+pct+'%"></div></div><span class="mono" style="font-size:11px">'+pct.toFixed(1)+'%</span></div></td><td><span class="badge '+(v.is_active?'badge-success':'badge-danger')+'">'+(v.is_active?'Active':'Inactive')+'</span>'+(v.jailed_until?' <span class="badge badge-danger">Jailed</span>':'')+'</td><td class="mono">'+v.commission_rate+'%</td><td class="mono">'+v.slash_count+'</td></tr>'}).join('')}catch(e){tb.innerHTML='<tr><td colspan="7"><div class="error-msg">'+e.message+'</div></td></tr>'}}
+function lookupAddr(a){document.getElementById('accountInput').value=a;navigate('accounts');lookupAccount()}
+async function lookupAccount(){const a=document.getElementById('accountInput').value.trim().replace(/^0x/,'');if(!a)return;const c=document.getElementById('accountResult');c.innerHTML='<div class="loading"><div class="spinner"></div> Looking up...</div>';try{const r=await fetchJSON('/accounts/'+a);if(!r.success){c.innerHTML='<div class="error-msg">Account not found</div>';return}const d=r.data;c.innerHTML='<div class="detail-card"><div class="detail-row"><div class="detail-label">Address</div><div class="detail-value mono">'+d.address+'</div></div><div class="detail-row"><div class="detail-label">Balance</div><div class="detail-value mono" style="font-weight:700;font-size:16px">'+d.balance+'</div></div><div class="detail-row"><div class="detail-label">Nonce</div><div class="detail-value mono">'+d.nonce+'</div></div><div class="detail-row"><div class="detail-label">Type</div><div class="detail-value">'+(d.code_hash?'<span class="badge badge-purple">Contract</span>':'<span class="badge badge-info">EOA</span>')+'</div></div>'+(d.code_hash?'<div class="detail-row"><div class="detail-label">Code Hash</div><div class="detail-value mono" style="font-size:11px">'+d.code_hash+'</div></div>':'')+'</div>'}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+function lookupContractAddr(a){document.getElementById('contractInput').value=a.replace(/^0x/,'');navigate('contracts');lookupContract()}
+async function lookupContract(){const a=document.getElementById('contractInput').value.trim().replace(/^0x/,'');if(!a)return;const c=document.getElementById('contractResult');c.innerHTML='<div class="loading"><div class="spinner"></div> Looking up...</div>';try{const r=await fetchJSON('/contracts/'+a);if(!r.success){c.innerHTML='<div class="error-msg">Contract not found</div>';return}const d=r.data;let ci=null;try{const cr=await fetchJSON('/contracts/'+a+'/code');if(cr.success)ci=cr.data}catch(e){}c.innerHTML='<div class="detail-card"><div class="detail-row"><div class="detail-label">Address</div><div class="detail-value mono">'+d.address+'</div></div><div class="detail-row"><div class="detail-label">Balance</div><div class="detail-value mono" style="font-weight:700;font-size:16px">'+d.balance+'</div></div><div class="detail-row"><div class="detail-label">Code Hash</div><div class="detail-value mono" style="font-size:11px">'+d.code_hash+'</div></div><div class="detail-row"><div class="detail-label">Nonce</div><div class="detail-value mono">'+d.nonce+'</div></div>'+(ci?'<div class="detail-row"><div class="detail-label">Code Size</div><div class="detail-value mono">'+ci.code_size.toLocaleString()+' bytes</div></div>':'')+'</div>'+(ci&&ci.code?'<div class="section" style="margin-top:14px"><div class="section-header"><span class="section-title">Bytecode</span><span class="badge badge-info">'+ci.code_size.toLocaleString()+' bytes</span></div><div style="padding:14px;max-height:180px;overflow-y:auto"><code class="mono" style="font-size:10px;word-break:break-all;color:var(--text-muted)">'+ci.code.substring(0,2000)+(ci.code.length>2000?'...':'')+'</code></div></div>':'')}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function loadRecentTransactions(){const tb=document.getElementById('txTableBody');try{const r=await fetchJSON('/blocks?page=1&per_page=20');if(!r.success)return;const txs=[];r.data.forEach(bl=>{if(bl.transactions)bl.transactions.forEach(tx=>txs.push({...tx,block_number:bl.number}))});if(!txs.length){tb.innerHTML='<tr><td colspan="7" style="padding:40px;text-align:center;color:var(--text-muted)">No transactions in recent blocks.</td></tr>';return}tb.innerHTML=txs.slice(0,50).map(tx=>'<tr onclick="viewTx(\''+(tx.tx_hash||tx.hash)+'\')" style="cursor:pointer"><td><span class="hash-link truncate">'+(tx.tx_hash||tx.hash||'--')+'</span></td><td class="mono"><span class="hash-link" onclick="event.stopPropagation();viewBlock('+tx.block_number+')">'+tx.block_number+'</span></td><td><span class="mono truncate" style="max-width:110px">'+(tx.from||'--')+'</span></td><td><span class="mono truncate" style="max-width:110px">'+(tx.to||'Contract')+'</span></td><td class="mono">'+(tx.value||'0')+'</td><td><span class="badge badge-info">'+(tx.tx_type||'--')+'</span></td><td><span class="badge badge-success">Included</span></td></tr>').join('')}catch(e){}}
+function connectWS(){const proto=location.protocol==='https:'?'wss':'ws';try{wsConn=new WebSocket(proto+'://'+location.host+'/ws');wsConn.onopen=()=>{document.getElementById('liveBadge').textContent='LIVE';document.getElementById('liveBadge').className='badge badge-success'};wsConn.onmessage=()=>{loadChainInfo();loadLatestBlocks()};wsConn.onclose=()=>{document.getElementById('liveBadge').textContent='RECONNECTING';document.getElementById('liveBadge').className='badge badge-warning';setTimeout(connectWS,3000)};wsConn.onerror=()=>wsConn.close()}catch(e){setTimeout(connectWS,5000)}}
+// Wallet
+function getWallets(){try{return JSON.parse(localStorage.getItem(WK)||'{}')}catch(e){return{}}}
+function saveWallet(a,ks){const w=getWallets();w[a]=ks;localStorage.setItem(WK,JSON.stringify(w))}
+function removeWallet(a){const w=getWallets();delete w[a];localStorage.setItem(WK,JSON.stringify(w))}
+function setActiveWallet(a){const w=getWallets();if(w[a]){activeWallet={address:a,keystore:w[a]};localStorage.setItem(AWK,a);updateWalletUI()}}
+function loadActiveWallet(){const a=localStorage.getItem(AWK),w=getWallets();if(a&&w[a])activeWallet={address:a,keystore:w[a]};updateWalletUI()}
+async function updateWalletUI(){const badge=document.getElementById('walletBadge'),panel=document.getElementById('walletAccountPanel');if(!activeWallet){badge.textContent='No Account';badge.style.background='var(--danger-bg)';badge.style.color='var(--danger)';panel.innerHTML='<div style="text-align:center;color:var(--text-muted);padding:16px">Create or import an account in the Manage tab.</div>';return}badge.textContent=truncA(activeWallet.address);badge.style.background='var(--success-bg)';badge.style.color='var(--success)';try{const r=await fetchJSON('/accounts/'+activeWallet.address.replace('0x',''));const bal=r.success?r.data.balance:'0',nonce=r.success?r.data.nonce:0;panel.innerHTML='<div class="detail-card"><div class="detail-row"><div class="detail-label">Address</div><div class="detail-value mono" style="font-size:12px">'+activeWallet.address+'</div></div><div class="detail-row"><div class="detail-label">Balance</div><div class="detail-value mono" style="font-weight:700;font-size:16px">'+bal+'</div></div><div class="detail-row"><div class="detail-label">Nonce</div><div class="detail-value mono">'+nonce+'</div></div></div>'}catch(e){panel.innerHTML='<div class="detail-card"><div class="detail-row"><div class="detail-label">Address</div><div class="detail-value mono" style="font-size:12px">'+activeWallet.address+'</div></div><div class="detail-row"><div class="detail-label">Balance</div><div class="detail-value mono">-- (not on chain yet)</div></div></div>'}}
+function renderSavedAccounts(){const c=document.getElementById('savedAccountsList'),w=getWallets(),addrs=Object.keys(w);if(!addrs.length){c.innerHTML='<div style="color:var(--text-muted)">No saved accounts. Create or import one above.</div>';return}c.innerHTML=addrs.map(a=>'<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;'+(activeWallet&&activeWallet.address===a?'border-color:var(--accent);background:var(--accent-glow)':'')+'"><span class="mono" style="font-size:12px">'+a+'</span><div style="display:flex;gap:6px">'+(activeWallet&&activeWallet.address===a?'<span class="badge badge-success">Active</span>':'<button class="btn btn-secondary" style="padding:3px 10px;font-size:11px" onclick="setActiveWallet(\''+a+'\')">Select</button>')+'<button class="btn btn-danger" style="padding:3px 10px;font-size:11px" onclick="if(confirm(\'Remove account?\')){removeWallet(\''+a+'\');if(activeWallet&&activeWallet.address===\''+a+'\'){activeWallet=null;localStorage.removeItem(AWK)}loadActiveWallet();renderSavedAccounts()}">Remove</button></div></div>').join('')}
+function showWalletTab(t){document.querySelectorAll('.wallet-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.wallet-tab').forEach(tb=>tb.classList.remove('active'));const el=document.getElementById('wtab-'+t);if(el)el.classList.add('active');const tab=document.querySelector('.wallet-tab[data-wtab="'+t+'"]');if(tab)tab.classList.add('active')}
+function toggleImportMethod(){const m=document.getElementById('importMethod').value;document.getElementById('importMnemonicGroup').style.display=m==='mnemonic'?'block':'none';document.getElementById('importPrivKeyGroup').style.display=m==='privatekey'?'block':'none'}
+function showResult(id,r){const el=document.getElementById(id);if(r.success){el.innerHTML='<div class="tx-success"><div style="font-weight:700;color:var(--success);margin-bottom:6px">Transaction Submitted</div><div class="mono" style="font-size:12px">Hash: <span class="hash-link" onclick="viewTx(\''+r.data.tx_hash+'\')">'+r.data.tx_hash+'</span></div><div style="margin-top:3px;font-size:12px;color:var(--text-secondary)">From: '+r.data.from+' | Nonce: '+r.data.nonce+'</div></div>';updateWalletUI()}else{el.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:r.error||'Failed')+'</div>'}}
+async function doCreateAccount(){const pw=document.getElementById('createPw').value,pw2=document.getElementById('createPw2').value;if(!pw){alert('Password is required');return}if(pw!==pw2){alert('Passwords do not match');return}const wc=parseInt(document.getElementById('createWords').value),c=document.getElementById('createResult');c.innerHTML='<div class="loading"><div class="spinner"></div> Creating account...</div>';try{const r=await postJSON('/wallet/create',{password:pw,word_count:wc});if(!r.success){c.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:'Failed')+'</div>';return}saveWallet(r.data.address,r.data.keystore);setActiveWallet(r.data.address);renderSavedAccounts();c.innerHTML='<div style="background:var(--success-bg);border:1px solid rgba(16,185,129,0.3);border-radius:var(--radius-sm);padding:14px"><div style="font-weight:700;color:var(--success);margin-bottom:10px">Account Created!</div><div class="mono" style="margin-bottom:10px;font-size:13px">Address: '+r.data.address+'</div><div style="background:var(--danger-bg);border:2px solid var(--danger);border-radius:var(--radius-sm);padding:14px"><div style="font-weight:700;color:var(--danger);margin-bottom:6px">SAVE YOUR MNEMONIC - Shown only once!</div><div class="mnemonic-box">'+r.data.mnemonic+'</div></div></div>'}catch(e){c.innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doImportAccount(){const m=document.getElementById('importMethod').value,pw=document.getElementById('importPw').value;if(!pw){alert('Password is required');return}const c=document.getElementById('importResult');c.innerHTML='<div class="loading"><div class="spinner"></div> Importing...</div>';try{let r;if(m==='mnemonic'){const mn=document.getElementById('importMnemonic').value.trim();if(!mn){alert('Mnemonic required');return}r=await postJSON('/wallet/import/mnemonic',{mnemonic:mn,password:pw})}else{const pk=document.getElementById('importPrivKey').value.trim();if(!pk){alert('Private key required');return}r=await postJSON('/wallet/import/private-key',{private_key:pk,password:pw})}if(!r.success){c.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:'Failed')+'</div>';return}saveWallet(r.data.address,r.data.keystore);setActiveWallet(r.data.address);renderSavedAccounts();c.innerHTML='<div class="tx-success" style="color:var(--success)">Account imported: '+r.data.address+'</div>'}catch(e){c.innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doSendTransfer(){if(!activeWallet){alert('No active wallet');return}const to=document.getElementById('sendTo').value.trim(),val=document.getElementById('sendValue').value.trim(),pw=document.getElementById('sendPw').value;if(!to||!val||!pw){alert('Fill all fields');return}document.getElementById('sendResult').innerHTML='<div class="loading"><div class="spinner"></div> Signing & submitting...</div>';try{const r=await postJSON('/wallet/transfer',{keystore:activeWallet.keystore,password:pw,to:to,value:val,gas_limit:parseInt(document.getElementById('sendGasLimit').value)||21000,gas_price:parseInt(document.getElementById('sendGasPrice').value)||1});showResult('sendResult',r)}catch(e){document.getElementById('sendResult').innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doStake(){if(!activeWallet){alert('No active wallet');return}const val=document.getElementById('stakeValue').value.trim(),pw=document.getElementById('stakePw').value;if(!val||!pw){alert('Fill all fields');return}document.getElementById('stakeResult').innerHTML='<div class="loading"><div class="spinner"></div> Submitting...</div>';try{const r=await postJSON('/wallet/stake',{keystore:activeWallet.keystore,password:pw,value:val});showResult('stakeResult',r)}catch(e){document.getElementById('stakeResult').innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doUnstake(){if(!activeWallet){alert('No active wallet');return}const val=document.getElementById('unstakeValue').value.trim(),pw=document.getElementById('unstakePw').value;if(!val||!pw){alert('Fill all fields');return}document.getElementById('unstakeResult').innerHTML='<div class="loading"><div class="spinner"></div> Submitting...</div>';try{const r=await postJSON('/wallet/unstake',{keystore:activeWallet.keystore,password:pw,value:val});showResult('unstakeResult',r)}catch(e){document.getElementById('unstakeResult').innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+function loadWasmFile(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const b=new Uint8Array(e.target.result);document.getElementById('deployBytecode').value=Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join('')};r.readAsArrayBuffer(f)}
+async function doDeploy(){if(!activeWallet){alert('No active wallet');return}const bc=document.getElementById('deployBytecode').value.trim(),pw=document.getElementById('deployPw').value;if(!bc||!pw){alert('Fill all fields');return}document.getElementById('deployResult').innerHTML='<div class="loading"><div class="spinner"></div> Deploying...</div>';try{const r=await postJSON('/wallet/deploy',{keystore:activeWallet.keystore,password:pw,bytecode:bc,gas_limit:parseInt(document.getElementById('deployGas').value)||1000000});showResult('deployResult',r)}catch(e){document.getElementById('deployResult').innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doCall(){if(!activeWallet){alert('No active wallet');return}const addr=document.getElementById('callAddr').value.trim(),fn=document.getElementById('callFunc').value.trim(),pw=document.getElementById('callPw').value;if(!addr||!fn||!pw){alert('Fill required fields');return}document.getElementById('callResult').innerHTML='<div class="loading"><div class="spinner"></div> Calling...</div>';try{const r=await postJSON('/wallet/call',{keystore:activeWallet.keystore,password:pw,contract:addr,function:fn,args:document.getElementById('callArgs').value.trim()||null,value:document.getElementById('callValue').value.trim()||'0',gas_limit:parseInt(document.getElementById('callGas').value)||500000});showResult('callResult',r)}catch(e){document.getElementById('callResult').innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+function trunc(h){if(!h||h.length<16)return h||'--';return h.substring(0,10)+'...'+h.substring(h.length-6)}
+function truncA(a){if(!a||a.length<12)return a||'--';return a.substring(0,8)+'...'+a.substring(a.length-4)}
+function timeAgo(ts){const d=Date.now()-ts;if(d<0)return'now';if(d<1000)return'now';if(d<60000)return Math.floor(d/1000)+'s ago';if(d<3600000)return Math.floor(d/60000)+'m ago';if(d<86400000)return Math.floor(d/3600000)+'h ago';return Math.floor(d/86400000)+'d ago'}
+function fmtStake(s){const n=BigInt(s),e=n/1000000000000000000n;return e>0n?e.toLocaleString()+' RCT':s}
+async function init(){await loadChainInfo();await loadLatestBlocks();connectWS();loadActiveWallet();setInterval(loadChainInfo,5000);setInterval(loadLatestBlocks,5000)}
+init();
+</script>
+</body>
+</html>
