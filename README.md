@@ -87,7 +87,7 @@ rustblockchain/
 
 ```
                     ┌─────────┐
-                    │  crypto  │  Ed25519, Blake3, BIP39, Keystores
+                    │  crypto │  Ed25519, Blake3, BIP39, Keystores
                     └────┬────┘
                          │
                     ┌────┴────┐
