@@ -106,7 +106,7 @@ async fn get_contract_code(
 
 pub fn contracts_router() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/{address}", get(get_contract_info))
-        .route("/{address}/storage/{key}", get(get_contract_storage))
-        .route("/{address}/code", get(get_contract_code))
+        .route("/:address", get(get_contract_info))
+        .route("/:address/storage/:key", get(get_contract_storage))
+        .route("/:address/code", get(get_contract_code))
 }

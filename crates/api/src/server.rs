@@ -6,6 +6,7 @@ use crate::routes;
 use crate::ws::handler::ws_upgrade;
 use crate::AppState;
 use axum::middleware;
+use axum::response::Html;
 use axum::routing::get;
 use axum::Router;
 use rustchain_consensus::ConsensusEngine;
@@ -18,6 +19,12 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info;
+
+const INDEX_HTML: &str = include_str!("../static/index.html");
+
+async fn serve_index() -> Html<&'static str> {
+    Html(INDEX_HTML)
+}
 
 /// The API server that ties together all routes, middleware, and listeners.
 pub struct ApiServer {
@@ -89,8 +96,13 @@ impl ApiServer {
                 .nest("/tx", routes::transactions_router())
         };
 
+        // --- Wallet routes (password-based auth via encrypted keystore) ---
+        let wallet_routes = Router::new().nest("/wallet", routes::wallet_router());
+
         let mut app = read_routes
             .merge(write_routes)
+            .merge(wallet_routes)
+            .route("/", get(serve_index))
             .with_state(self.state.clone());
 
         // --- Metrics endpoint (separate state) ---

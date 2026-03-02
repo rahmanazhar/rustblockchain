@@ -6,6 +6,7 @@ pub mod health;
 pub mod receipts;
 pub mod transactions;
 pub mod validators;
+pub mod wallet;
 
 pub use accounts::accounts_router;
 pub use blocks::blocks_router;
@@ -15,3 +16,4 @@ pub use health::health_router;
 pub use receipts::receipts_router;
 pub use transactions::transactions_router;
 pub use validators::validators_router;
+pub use wallet::wallet_router;

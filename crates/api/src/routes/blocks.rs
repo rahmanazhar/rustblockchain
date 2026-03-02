@@ -87,5 +87,5 @@ pub fn blocks_router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_blocks))
         .route("/latest", get(get_latest_block))
-        .route("/{id}", get(get_block))
+        .route("/:id", get(get_block))
 }

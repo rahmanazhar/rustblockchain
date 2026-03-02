@@ -110,6 +110,6 @@ async fn submit_transaction(
 
 pub fn transactions_router() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/{hash}", get(get_transaction))
+        .route("/:hash", get(get_transaction))
         .route("/", post(submit_transaction))
 }
