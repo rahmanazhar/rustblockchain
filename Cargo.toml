@@ -7,11 +7,13 @@ members = [
     "crates/vm",
     "crates/consensus",
     "crates/network",
+    "crates/bridge",
     "crates/api",
     "crates/node",
     "crates/wallet",
     "contracts/sdk",
     "contracts/token",
+    "contracts/bridge",
 ]
 
 [workspace.package]

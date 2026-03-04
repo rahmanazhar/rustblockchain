@@ -53,6 +53,7 @@ body{font-family:var(--font-sans);background:var(--bg-primary);color:var(--text-
 .nav-item.active{color:var(--accent);border-bottom-color:var(--accent)}
 .nav-item.wallet-nav{margin-left:auto;color:var(--purple)}
 .nav-item.wallet-nav.active{color:var(--purple);border-bottom-color:var(--purple)}
+.nav-item[data-page="bridge"].active{color:var(--warning);border-bottom-color:var(--warning)}
 .search-bar{padding:16px 24px;max-width:1400px;margin:0 auto}
 .search-wrapper{position:relative;display:flex;align-items:center}
 .search-icon{position:absolute;left:14px;color:var(--text-muted);font-size:14px;pointer-events:none}
@@ -160,6 +161,7 @@ select.form-input{font-family:var(--font-sans)}
   <div class="nav-item" data-page="validators" onclick="navigate('validators')">Validators</div>
   <div class="nav-item" data-page="accounts" onclick="navigate('accounts')">Accounts</div>
   <div class="nav-item" data-page="contracts" onclick="navigate('contracts')">Contracts</div>
+  <div class="nav-item" data-page="bridge" onclick="navigate('bridge')" style="color:var(--warning)">Bridge</div>
   <div class="nav-item wallet-nav" data-page="wallet" onclick="navigate('wallet')">Wallet</div>
 </nav>
 <div class="search-bar">
@@ -216,6 +218,121 @@ select.form-input{font-family:var(--font-sans)}
 <div class="page" id="page-contracts">
   <div class="section"><div class="section-header"><span class="section-title">Contract Lookup</span></div><div style="padding:20px"><div class="search-wrapper"><span class="search-icon">&#x1F4DC;</span><input class="search-input" id="contractInput" type="text" placeholder="Enter contract address (hex)..." onkeydown="if(event.key==='Enter')lookupContract()"></div></div></div>
   <div id="contractResult"></div>
+</div>
+<!-- BRIDGE -->
+<div class="page" id="page-bridge">
+  <div class="stats-grid" id="bridgeStats">
+    <div class="stat-card"><div class="stat-label">Supported Chains</div><div class="stat-value accent" id="bridgeChainCount">5</div></div>
+    <div class="stat-card"><div class="stat-label">Total Transfers</div><div class="stat-value success" id="bridgeTotalTransfers">0</div></div>
+    <div class="stat-card"><div class="stat-label">Pending Transfers</div><div class="stat-value" style="color:var(--warning)" id="bridgePendingTransfers">0</div></div>
+    <div class="stat-card"><div class="stat-label">Active HTLCs</div><div class="stat-value purple" id="bridgeActiveHtlcs">0</div></div>
+    <div class="stat-card"><div class="stat-label">Bridge Validators</div><div class="stat-value accent" id="bridgeValidatorCount">0</div></div>
+  </div>
+  <div class="wallet-tabs">
+    <div class="wallet-tab active" data-btab="bchains" onclick="showBridgeTab('bchains')">Chains</div>
+    <div class="wallet-tab" data-btab="btransfer" onclick="showBridgeTab('btransfer')">Transfer</div>
+    <div class="wallet-tab" data-btab="bhtlc" onclick="showBridgeTab('bhtlc')">Atomic Swap</div>
+    <div class="wallet-tab" data-btab="bhistory" onclick="showBridgeTab('bhistory')">History</div>
+    <div class="wallet-tab" data-btab="bfees" onclick="showBridgeTab('bfees')">Fees & Liquidity</div>
+  </div>
+  <!-- Chains -->
+  <div class="wallet-panel active" id="btab-bchains">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)">
+      <div class="section-header"><span class="section-title">Supported Chains & Tokens</span></div>
+      <div id="bridgeChainsContent"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+  </div>
+  <!-- Transfer -->
+  <div class="wallet-panel" id="btab-btransfer">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)">
+      <div class="section-header"><span class="section-title">Cross-Chain Bridge Transfer</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Direction</label>
+          <select class="form-input" id="bridgeDirection" style="width:auto" onchange="updateBridgeDirection()">
+            <option value="outbound">RustChain &#8594; External Chain (Lock & Mint)</option>
+            <option value="inbound">External Chain &#8594; RustChain (Burn & Unlock)</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Destination Chain</label>
+          <select class="form-input" id="bridgeDestChain" style="width:auto">
+            <option value="Ethereum">Ethereum (ETH)</option>
+            <option value="BnbChain">BNB Chain (BNB)</option>
+            <option value="Polygon">Polygon (MATIC)</option>
+            <option value="Bitcoin">Bitcoin (BTC)</option>
+            <option value="Solana">Solana (SOL)</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">Sender Address (RustChain)</label><input class="form-input" id="bridgeSender" type="text" placeholder="0x... (your RustChain address)"></div>
+        <div class="form-group"><label class="form-label">Recipient Address (External Chain)</label><input class="form-input" id="bridgeRecipient" type="text" placeholder="Address on destination chain"></div>
+        <div class="form-group"><label class="form-label">Token Symbol</label><input class="form-input" id="bridgeToken" type="text" value="RCT" placeholder="e.g. RCT, ETH, BTC"></div>
+        <div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="bridgeAmount" type="text" placeholder="Amount in smallest unit"></div>
+        <div style="background:var(--warning-bg);border:1px solid rgba(245,158,11,0.3);border-radius:var(--radius-sm);padding:12px;margin-bottom:14px;font-size:12px;color:var(--warning)">Bridge fee: 0.1% (10 bps). Estimated gas costs vary by chain. See Fees tab for details.</div>
+        <button class="btn btn-primary" onclick="doBridgeTransfer()">Initiate Bridge Transfer</button>
+        <div id="bridgeTransferResult" style="margin-top:14px"></div>
+      </div></div>
+  </div>
+  <!-- HTLC Atomic Swap -->
+  <div class="wallet-panel" id="btab-bhtlc">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)">
+      <div class="section-header"><span class="section-title">Create Atomic Swap (HTLC)</span></div>
+      <div style="padding:18px">
+        <div style="background:var(--accent-glow);border:1px solid rgba(59,130,246,0.3);border-radius:var(--radius-sm);padding:12px;margin-bottom:14px;font-size:12px;color:var(--accent)">Hash Time-Locked Contracts enable trustless cross-chain swaps. You lock tokens with a hash lock, and the counterparty can claim them by revealing the secret preimage. If unclaimed before the timelock, you get a refund.</div>
+        <div class="form-group"><label class="form-label">Your Address (Sender)</label><input class="form-input" id="htlcSender" type="text" placeholder="0x..."></div>
+        <div class="form-group"><label class="form-label">Recipient Address (on RustChain)</label><input class="form-input" id="htlcRecipient" type="text" placeholder="0x..."></div>
+        <div class="form-group"><label class="form-label">Amount (RCT)</label><input class="form-input" id="htlcAmount" type="text" placeholder="Amount to lock"></div>
+        <div class="form-group"><label class="form-label">Hash Lock (SHA-256, 64 hex chars)</label><input class="form-input" id="htlcHashLock" type="text" placeholder="SHA-256 hash of your secret preimage">
+          <button class="btn btn-secondary" style="margin-top:6px;padding:4px 12px;font-size:11px" onclick="generateHtlcSecret()">Generate Random Secret & Hash</button>
+          <div id="htlcSecretDisplay" style="margin-top:6px"></div></div>
+        <div class="form-group"><label class="form-label">External Chain</label>
+          <select class="form-input" id="htlcChain" style="width:auto">
+            <option value="Ethereum">Ethereum</option><option value="BnbChain">BNB Chain</option>
+            <option value="Polygon">Polygon</option><option value="Bitcoin">Bitcoin</option>
+            <option value="Solana">Solana</option>
+          </select></div>
+        <div class="form-group"><label class="form-label">External Address</label><input class="form-input" id="htlcExtAddr" type="text" placeholder="Your address on the external chain"></div>
+        <div class="form-group"><label class="form-label">External Amount</label><input class="form-input" id="htlcExtAmount" type="text" placeholder="Amount you expect on the external chain"></div>
+        <div class="form-group"><label class="form-label">Timelock (Unix timestamp, optional)</label><input class="form-input" id="htlcTimelock" type="number" placeholder="Leave empty for 1 hour default"></div>
+        <button class="btn btn-primary" onclick="doCreateHtlc()">Create HTLC Swap</button>
+        <div id="htlcCreateResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section">
+      <div class="section-header"><span class="section-title">Claim HTLC</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Swap ID (hash lock hex)</label><input class="form-input" id="htlcClaimId" type="text" placeholder="64 hex chars"></div>
+        <div class="form-group"><label class="form-label">Preimage (hex)</label><input class="form-input" id="htlcClaimPreimage" type="text" placeholder="The secret that hashes to the hash lock"></div>
+        <div class="form-group"><label class="form-label">Your Address (Claimer)</label><input class="form-input" id="htlcClaimAddr" type="text" placeholder="0x..."></div>
+        <button class="btn btn-primary" onclick="doClaimHtlc()">Claim HTLC</button>
+        <div id="htlcClaimResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section">
+      <div class="section-header"><span class="section-title">Refund Expired HTLC</span></div>
+      <div style="padding:18px">
+        <div class="form-group"><label class="form-label">Swap ID</label><input class="form-input" id="htlcRefundId" type="text" placeholder="64 hex chars"></div>
+        <div class="form-group"><label class="form-label">Your Address (Refunder/Sender)</label><input class="form-input" id="htlcRefundAddr" type="text" placeholder="0x..."></div>
+        <button class="btn btn-danger" onclick="doRefundHtlc()">Refund HTLC</button>
+        <div id="htlcRefundResult" style="margin-top:14px"></div>
+      </div></div>
+    <div class="section">
+      <div class="section-header"><span class="section-title">Active HTLC Swaps</span></div>
+      <div id="htlcListContent"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+  </div>
+  <!-- History -->
+  <div class="wallet-panel" id="btab-bhistory">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)">
+      <div class="section-header"><span class="section-title">Bridge Transfer History</span></div>
+      <div id="bridgeHistoryContent"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+  </div>
+  <!-- Fees & Liquidity -->
+  <div class="wallet-panel" id="btab-bfees">
+    <div class="section" style="border-top:none;border-radius:0 0 var(--radius) var(--radius)">
+      <div class="section-header"><span class="section-title">Fee Schedule</span></div>
+      <div id="bridgeFeesContent"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="section-title">Bridge Liquidity</span></div>
+      <div id="bridgeLiquidityContent"><div class="loading"><div class="spinner"></div> Loading...</div></div>
+    </div>
+  </div>
 </div>
 <!-- WALLET -->
 <div class="page" id="page-wallet">
@@ -302,7 +419,7 @@ select.form-input{font-family:var(--font-sans)}
 </main>
 <script>
 const API=window.location.origin;let wsConn=null,blocksPage=1,chainInfo=null,recentBlocks=[],activeWallet=null;const BPP=15,WK='rustchain_wallets',AWK='rustchain_active_wallet';
-function navigate(p){document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));const el=document.getElementById('page-'+p);if(el)el.classList.add('active');const n=document.querySelector('.nav-item[data-page="'+p+'"]');if(n)n.classList.add('active');if(p==='blocks')loadBlocks(1);if(p==='validators')loadValidators();if(p==='transactions')loadRecentTransactions();if(p==='wallet'){loadActiveWallet();renderSavedAccounts()}}
+function navigate(p){document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));const el=document.getElementById('page-'+p);if(el)el.classList.add('active');const n=document.querySelector('.nav-item[data-page="'+p+'"]');if(n)n.classList.add('active');if(p==='blocks')loadBlocks(1);if(p==='validators')loadValidators();if(p==='transactions')loadRecentTransactions();if(p==='wallet'){loadActiveWallet();renderSavedAccounts()}if(p==='bridge')loadBridgeData()}
 function navRaw(p){document.querySelectorAll('.page').forEach(e=>e.classList.remove('active'));document.querySelectorAll('.nav-item').forEach(e=>e.classList.remove('active'));const el=document.getElementById('page-'+p);if(el)el.classList.add('active')}
 function doSearch(){const q=document.getElementById('searchInput').value.trim();if(!q)return;if(/^\d+$/.test(q)){viewBlock(q);return}const c=q.replace(/^0x/,'');if(/^[a-fA-F0-9]{64}$/.test(c)){fetchJSON('/tx/'+c).then(r=>{r&&r.success?viewTx(c):viewBlock('0x'+c)}).catch(()=>viewBlock('0x'+c));return}if(/^[a-fA-F0-9]{40}$/.test(c)){document.getElementById('accountInput').value=c;navigate('accounts');lookupAccount();return}viewBlock(q)}
 async function fetchJSON(p){const r=await fetch(API+p);const t=await r.text();if(!t)return{success:false,error:'Empty response ('+r.status+')'};try{return JSON.parse(t)}catch(e){return{success:false,error:'Invalid JSON: '+t.substring(0,100)}}}
@@ -344,6 +461,20 @@ function trunc(h){if(!h||h.length<16)return h||'--';return h.substring(0,10)+'..
 function truncA(a){if(!a||a.length<12)return a||'--';return a.substring(0,8)+'...'+a.substring(a.length-4)}
 function timeAgo(ts){const d=Date.now()-ts;if(d<0)return'now';if(d<1000)return'now';if(d<60000)return Math.floor(d/1000)+'s ago';if(d<3600000)return Math.floor(d/60000)+'m ago';if(d<86400000)return Math.floor(d/3600000)+'h ago';return Math.floor(d/86400000)+'d ago'}
 function fmtStake(s){const n=BigInt(s),e=n/1000000000000000000n;return e>0n?e.toLocaleString()+' RCT':s}
+// Bridge functions
+function showBridgeTab(t){document.querySelectorAll('#page-bridge .wallet-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('#page-bridge .wallet-tab').forEach(tb=>tb.classList.remove('active'));const el=document.getElementById('btab-'+t);if(el)el.classList.add('active');const tab=document.querySelector('#page-bridge .wallet-tab[data-btab="'+t+'"]');if(tab)tab.classList.add('active');if(t==='bchains')loadBridgeChains();if(t==='bhistory')loadBridgeHistory();if(t==='bhtlc')loadBridgeHtlcs();if(t==='bfees'){loadBridgeFees();loadBridgeLiquidity()}}
+async function loadBridgeData(){try{const r=await fetchJSON('/bridge/stats');if(r.success){const d=r.data;document.getElementById('bridgeChainCount').textContent=d.supported_chains;document.getElementById('bridgeTotalTransfers').textContent=d.total_transfers;document.getElementById('bridgePendingTransfers').textContent=d.pending_transfers;document.getElementById('bridgeActiveHtlcs').textContent=d.active_htlcs;document.getElementById('bridgeValidatorCount').textContent=d.bridge_validators}}catch(e){}loadBridgeChains();if(activeWallet){document.getElementById('bridgeSender').value=activeWallet.address;document.getElementById('htlcSender').value=activeWallet.address;document.getElementById('htlcClaimAddr').value=activeWallet.address;document.getElementById('htlcRefundAddr').value=activeWallet.address}}
+async function loadBridgeChains(){const c=document.getElementById('bridgeChainsContent');try{const r=await fetchJSON('/bridge/chains');if(!r.success){c.innerHTML='<div class="error-msg">Failed to load chains</div>';return}const chains=r.data.chains;c.innerHTML=chains.map(ch=>'<div style="padding:14px 18px;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:16px;font-weight:700">'+ch.name+'</span><span class="badge badge-info">'+ch.symbol+'</span>'+(ch.is_evm?'<span class="badge badge-purple">EVM</span>':'')+'</div><span class="mono" style="font-size:11px;color:var(--text-muted)">Chain ID: '+ch.chain_id+'</span></div><div class="table-wrapper"><table><thead><tr><th>Token</th><th>Name</th><th>Decimals</th><th>Min Amount</th><th>Max Amount</th><th>Fee</th><th>Status</th></tr></thead><tbody>'+ch.tokens.map(t=>'<tr><td class="mono" style="font-weight:700">'+t.symbol+'</td><td>'+t.name+'</td><td class="mono">'+t.decimals+'</td><td class="mono">'+t.min_amount+'</td><td class="mono">'+t.max_amount+'</td><td class="mono">'+t.fee_bps+' bps</td><td><span class="badge '+(t.enabled?'badge-success':'badge-danger')+'">'+(t.enabled?'Enabled':'Disabled')+'</span></td></tr>').join('')+'</tbody></table></div></div>').join('')}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function doBridgeTransfer(){const sender=document.getElementById('bridgeSender').value.trim(),dest=document.getElementById('bridgeDestChain').value,recip=document.getElementById('bridgeRecipient').value.trim(),token=document.getElementById('bridgeToken').value.trim(),amount=document.getElementById('bridgeAmount').value.trim(),res=document.getElementById('bridgeTransferResult');if(!sender||!recip||!amount){alert('Fill all required fields');return}res.innerHTML='<div class="loading"><div class="spinner"></div> Initiating bridge transfer...</div>';try{const r=await postJSON('/bridge/transfer',{sender:sender,dest_chain:dest,recipient:recip,token_symbol:token,amount:amount});if(r.success){res.innerHTML='<div class="tx-success"><div style="font-weight:700;color:var(--success);margin-bottom:6px">Bridge Transfer Initiated!</div><div class="mono" style="font-size:12px">Transfer ID: '+r.data.id+'</div><div style="font-size:12px;color:var(--text-secondary);margin-top:3px">Status: '+r.data.status+' | Direction: '+r.data.direction+'</div><div style="font-size:12px;color:var(--text-secondary);margin-top:3px">Amount: '+r.data.amount+' '+r.data.token_symbol+' (fee: '+r.data.fee+')</div><div style="font-size:12px;color:var(--text-muted);margin-top:6px">Awaiting '+r.data.required_confirmations+' validator confirmations.</div></div>';loadBridgeData()}else{res.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:r.error||'Failed')+'</div>'}}catch(e){res.innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+function generateHtlcSecret(){const arr=new Uint8Array(32);crypto.getRandomValues(arr);const secretHex=Array.from(arr).map(b=>b.toString(16).padStart(2,'0')).join('');crypto.subtle.digest('SHA-256',arr).then(buf=>{const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');document.getElementById('htlcHashLock').value=hash;document.getElementById('htlcSecretDisplay').innerHTML='<div style="background:var(--danger-bg);border:1px solid var(--danger);border-radius:var(--radius-sm);padding:10px;font-size:11px"><div style="font-weight:700;color:var(--danger);margin-bottom:4px">SAVE THIS SECRET PREIMAGE! You need it to claim.</div><div class="mono" style="word-break:break-all">'+secretHex+'</div></div>'})}
+async function doCreateHtlc(){const sender=document.getElementById('htlcSender').value.trim(),recip=document.getElementById('htlcRecipient').value.trim(),amount=document.getElementById('htlcAmount').value.trim(),hash=document.getElementById('htlcHashLock').value.trim(),chain=document.getElementById('htlcChain').value,extAddr=document.getElementById('htlcExtAddr').value.trim(),extAmt=document.getElementById('htlcExtAmount').value.trim(),tl=document.getElementById('htlcTimelock').value,res=document.getElementById('htlcCreateResult');if(!sender||!recip||!amount||!hash){alert('Fill required fields');return}res.innerHTML='<div class="loading"><div class="spinner"></div> Creating HTLC...</div>';try{const body={sender:sender,recipient:recip,amount:amount,hash_lock:hash,external_chain:chain,external_address:extAddr||'',external_amount:extAmt||'0'};if(tl)body.timelock=parseInt(tl);const r=await postJSON('/bridge/htlc/create',body);if(r.success){res.innerHTML='<div class="tx-success"><div style="font-weight:700;color:var(--success);margin-bottom:6px">HTLC Created!</div><div class="mono" style="font-size:12px">Swap ID: '+r.data.id+'</div><div style="font-size:12px;color:var(--text-secondary);margin-top:3px">Amount: '+r.data.amount+' RCT | Chain: '+r.data.external_chain+'</div><div style="font-size:12px;color:var(--text-secondary)">Timelock: '+new Date(r.data.timelock*1000).toLocaleString()+'</div></div>';loadBridgeData();loadBridgeHtlcs()}else{res.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:r.error||'Failed')+'</div>'}}catch(e){res.innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doClaimHtlc(){const id=document.getElementById('htlcClaimId').value.trim(),pre=document.getElementById('htlcClaimPreimage').value.trim(),addr=document.getElementById('htlcClaimAddr').value.trim(),res=document.getElementById('htlcClaimResult');if(!id||!pre||!addr){alert('Fill all fields');return}res.innerHTML='<div class="loading"><div class="spinner"></div> Claiming...</div>';try{const r=await postJSON('/bridge/htlc/claim',{swap_id:id,preimage:pre,claimer:addr});if(r.success){res.innerHTML='<div class="tx-success"><div style="font-weight:700;color:var(--success)">HTLC Claimed!</div><div class="mono" style="font-size:12px;margin-top:4px">Amount: '+r.data.amount+' RCT transferred to recipient.</div></div>';loadBridgeHtlcs()}else{res.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:r.error||'Failed')+'</div>'}}catch(e){res.innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function doRefundHtlc(){const id=document.getElementById('htlcRefundId').value.trim(),addr=document.getElementById('htlcRefundAddr').value.trim(),res=document.getElementById('htlcRefundResult');if(!id||!addr){alert('Fill all fields');return}res.innerHTML='<div class="loading"><div class="spinner"></div> Refunding...</div>';try{const r=await postJSON('/bridge/htlc/refund',{swap_id:id,refunder:addr});if(r.success){res.innerHTML='<div class="tx-success"><div style="font-weight:700;color:var(--success)">HTLC Refunded!</div><div class="mono" style="font-size:12px;margin-top:4px">'+r.data.amount+' RCT returned to sender.</div></div>';loadBridgeHtlcs()}else{res.innerHTML='<div class="tx-error">'+(r.error&&r.error.message?r.error.message:r.error||'Failed')+'</div>'}}catch(e){res.innerHTML='<div class="tx-error">'+e.message+'</div>'}}
+async function loadBridgeHtlcs(){const c=document.getElementById('htlcListContent');try{const r=await fetchJSON('/bridge/htlc');if(!r.success||!r.data.length){c.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-muted)">No HTLC swaps yet.</div>';return}c.innerHTML='<div class="table-wrapper"><table><thead><tr><th>Swap ID</th><th>Sender</th><th>Recipient</th><th>Amount</th><th>Chain</th><th>Timelock</th><th>Status</th></tr></thead><tbody>'+r.data.map(s=>'<tr><td><span class="mono truncate" style="max-width:120px">'+s.id+'</span></td><td><span class="mono truncate" style="max-width:90px">'+(s.sender||'--')+'</span></td><td><span class="mono truncate" style="max-width:90px">'+(s.recipient||'--')+'</span></td><td class="mono">'+s.amount+'</td><td><span class="badge badge-info">'+s.external_chain+'</span></td><td style="font-size:12px">'+new Date(s.timelock*1000).toLocaleString()+'</td><td><span class="badge '+(s.status==='Active'?'badge-warning':s.status==='Claimed'?'badge-success':'badge-danger')+'">'+s.status+'</span></td></tr>').join('')+'</tbody></table></div>'}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function loadBridgeHistory(){const c=document.getElementById('bridgeHistoryContent');try{const r=await fetchJSON('/bridge/transfers');if(!r.success||!r.data.length){c.innerHTML='<div style="padding:30px;text-align:center;color:var(--text-muted)">No bridge transfers yet.</div>';return}c.innerHTML='<div class="table-wrapper"><table><thead><tr><th>ID</th><th>Direction</th><th>Source</th><th>Dest</th><th>Amount</th><th>Token</th><th>Fee</th><th>Confirmations</th><th>Status</th><th>Time</th></tr></thead><tbody>'+r.data.map(t=>'<tr><td><span class="mono truncate" style="max-width:130px">'+t.id+'</span></td><td><span class="badge '+(t.direction==='Inbound'?'badge-success':'badge-info')+'">'+(t.direction==='Inbound'?'IN':'OUT')+'</span></td><td class="mono" style="font-size:11px">'+t.source_chain+'</td><td class="mono" style="font-size:11px">'+t.dest_chain+'</td><td class="mono">'+t.amount+'</td><td><span class="badge badge-purple">'+t.token_symbol+'</span></td><td class="mono">'+t.fee+'</td><td class="mono">'+t.confirmations+'/'+t.required_confirmations+'</td><td><span class="badge '+(t.status==='Completed'?'badge-success':t.status==='Failed'?'badge-danger':t.status==='Validated'?'badge-info':'badge-warning')+'">'+t.status+'</span></td><td style="font-size:11px;color:var(--text-muted)">'+timeAgo(t.created_at)+'</td></tr>').join('')+'</tbody></table></div>'}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function loadBridgeFees(){const c=document.getElementById('bridgeFeesContent');try{const r=await fetchJSON('/bridge/fees');if(!r.success){c.innerHTML='<div class="error-msg">Failed to load fees</div>';return}c.innerHTML='<div class="table-wrapper"><table><thead><tr><th>Chain</th><th>Token</th><th>Fee (bps)</th><th>Min Fee</th><th>Est. Gas Cost</th></tr></thead><tbody>'+r.data.map(f=>'<tr><td style="font-weight:600">'+f.chain+'</td><td class="mono">'+f.token_symbol+'</td><td class="mono">'+f.fee_bps+' ('+((f.fee_bps/100).toFixed(2))+'%)</td><td class="mono">'+f.min_fee+'</td><td class="mono" style="color:var(--text-secondary)">'+f.estimated_gas_cost+'</td></tr>').join('')+'</tbody></table></div>'}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+async function loadBridgeLiquidity(){const c=document.getElementById('bridgeLiquidityContent');try{const r=await fetchJSON('/bridge/liquidity');if(!r.success){c.innerHTML='<div class="error-msg">Failed to load liquidity</div>';return}c.innerHTML='<div class="table-wrapper"><table><thead><tr><th>Chain</th><th>Token</th><th>Locked</th><th>Wrapped Supply</th><th>Available Outbound</th></tr></thead><tbody>'+r.data.map(l=>'<tr><td style="font-weight:600">'+l.chain+'</td><td class="mono">'+l.token_symbol+'</td><td class="mono">'+l.locked_amount+'</td><td class="mono">'+l.wrapped_supply+'</td><td class="mono" style="color:var(--success)">'+l.available_outbound+'</td></tr>').join('')+'</tbody></table></div>'}catch(e){c.innerHTML='<div class="error-msg">'+e.message+'</div>'}}
+function updateBridgeDirection(){/* UI hint only */}
 async function init(){await loadChainInfo();await loadLatestBlocks();connectWS();loadActiveWallet();setInterval(loadChainInfo,5000);setInterval(loadLatestBlocks,5000)}
 init();
 </script>

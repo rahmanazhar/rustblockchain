@@ -105,6 +105,9 @@ impl ApiServer {
             .route("/", get(serve_index))
             .with_state(self.state.clone());
 
+        // --- Bridge routes (cross-chain interoperability, uses its own state) ---
+        app = app.nest("/bridge", routes::bridge_router(self.state.clone()));
+
         // --- Metrics endpoint (separate state) ---
         if self.config.metrics_enabled {
             let metrics_state = self.state.metrics.clone();

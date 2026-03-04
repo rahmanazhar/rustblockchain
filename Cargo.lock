@@ -3840,6 +3840,7 @@ dependencies = [
  "parking_lot",
  "prometheus",
  "reqwest",
+ "rustchain-bridge",
  "rustchain-consensus",
  "rustchain-core",
  "rustchain-crypto",
@@ -3857,6 +3858,37 @@ dependencies = [
  "tower-http 0.5.2",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "rustchain-bridge"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "blake3",
+ "chrono",
+ "dashmap",
+ "hex",
+ "parking_lot",
+ "rustchain-core",
+ "rustchain-crypto",
+ "rustchain-storage",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "rustchain-bridge-contract"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "rustchain-sdk",
+ "serde",
 ]
 
 [[package]]

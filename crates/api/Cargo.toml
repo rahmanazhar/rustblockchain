@@ -10,6 +10,7 @@ rustchain-core = { path = "../core" }
 rustchain-storage = { path = "../storage" }
 rustchain-consensus = { path = "../consensus" }
 rustchain-network = { path = "../network" }
+rustchain-bridge = { path = "../bridge" }
 axum.workspace = true
 axum-extra.workspace = true
 tower.workspace = true
