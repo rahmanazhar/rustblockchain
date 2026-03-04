@@ -1,5 +1,6 @@
 pub mod accounts;
 pub mod blocks;
+pub mod bridge;
 pub mod chain;
 pub mod contracts;
 pub mod health;
@@ -10,6 +11,7 @@ pub mod wallet;
 
 pub use accounts::accounts_router;
 pub use blocks::blocks_router;
+pub use bridge::bridge_router;
 pub use chain::chain_router;
 pub use contracts::contracts_router;
 pub use health::health_router;

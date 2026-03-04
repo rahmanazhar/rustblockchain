@@ -2,7 +2,7 @@
 
 A production-grade Proof of Stake blockchain built in Rust with WASM smart contracts, a web dashboard, enterprise security, and full deployment tooling.
 
-**78 tests** | **11 crates** | **Zero unsafe in application code** | **Zero clippy warnings**
+**116 tests** | **13 crates** | **Zero unsafe in application code** | **Zero clippy warnings**
 
 ---
 
@@ -12,6 +12,7 @@ A production-grade Proof of Stake blockchain built in Rust with WASM smart contr
 - [Architecture](#architecture)
 - [Quick Start](#quick-start)
 - [Web Dashboard](#web-dashboard)
+- [Cross-Chain Bridge](#cross-chain-bridge)
 - [Wallet CLI](#wallet-cli)
 - [API Reference](#api-reference)
 - [Smart Contracts](#smart-contracts)
@@ -35,14 +36,24 @@ A production-grade Proof of Stake blockchain built in Rust with WASM smart contr
 - **WASM VM** - Wasmtime-powered execution engine with gas metering, memory limits, and call depth limits
 - **Contract SDK** - Rust SDK for writing contracts with storage, events, transfers, and chain introspection
 - **Cross-platform SDK** - Thread-local mock environment for native testing on x86_64/aarch64 without WASM toolchain
-- **Example Contract** - ERC20-like token contract with init, transfer, approve, and balance queries
+- **Example Contracts** - ERC20-like token contract and cross-chain bridge contract
+
+### Cross-Chain Bridge
+- **5 Supported Chains** - Bitcoin, Ethereum, BNB Chain, Polygon, Solana
+- **HTLC Atomic Swaps** - SHA-256 hash-locked contracts with timelocks for trustless cross-chain trading
+- **Lock-and-Mint / Burn-and-Unlock** - Wrapped token minting on inbound, burning on outbound
+- **Multi-Validator Threshold Signing** - Configurable quorum (default 2/3+) for bridge operation security
+- **Chain Adapters** - Pluggable adapters per chain (EVM, Bitcoin HTLC scripts, Solana programs)
+- **Fee System** - Per-chain fee schedules with configurable basis points, minimums, and maximums
+- **Bridge Contract** - On-chain WASM contract for decentralized HTLC and bridge operations
+- **Relayer** - Automated relay service for processing cross-chain transfer lifecycle
 
 ### Networking
 - **libp2p** - Kademlia DHT for peer discovery, GossipSub for block/tx propagation, Noise protocol encryption
 - **Peer Management** - Scoring, banning, connection limits, mDNS for local discovery, configurable bootnodes
 
 ### API & Dashboard
-- **REST API** - 22 endpoints covering chain, blocks, transactions, accounts, validators, contracts, receipts, wallet operations
+- **REST API** - 38 endpoints covering chain, blocks, transactions, accounts, validators, contracts, receipts, wallet, and cross-chain bridge operations
 - **WebSocket** - Real-time subscriptions for new blocks, transactions, and finality events
 - **Web Dashboard** - Built-in blockchain explorer and wallet UI served at `/` (no external dependencies)
 - **Middleware** - JWT authentication, RBAC (Admin/Validator/User/ReadOnly), rate limiting, CORS, request body limits
@@ -70,12 +81,14 @@ rustblockchain/
 │   ├── vm/           # Wasmtime WASM smart contract engine with gas metering
 │   ├── consensus/    # PoS engine, finality, slashing, mempool, epoch management
 │   ├── network/      # libp2p P2P networking, peer scoring, block sync
-│   ├── api/          # Axum REST + WebSocket server, web dashboard, wallet API
+│   ├── bridge/       # Cross-chain bridge: HTLC, relayer, chain adapters, validators
+│   ├── api/          # Axum REST + WebSocket server, web dashboard, wallet & bridge API
 │   ├── node/         # Main node binary with CLI
 │   └── wallet/       # CLI wallet for account management and transactions
 ├── contracts/
 │   ├── sdk/          # Smart contract SDK (WASM + native mock for testing)
-│   └── token/        # Example ERC20-like token contract
+│   ├── token/        # Example ERC20-like token contract
+│   └── bridge/       # Cross-chain bridge WASM contract (HTLC + lock/mint/burn)
 ├── deploy/
 │   ├── docker/       # Dockerfile + docker-compose (3 validators + Prometheus + Grafana)
 │   ├── k8s/          # Kubernetes manifests (StatefulSet, Service, Ingress, HPA, etc.)
@@ -103,11 +116,11 @@ rustblockchain/
               └──┤  consensus     │  PoS, finality, slashing, mempool
                  └───────┬────────┘
            ┌─────────────┼─────────────┐
-      ┌────┴────┐   ┌────┴────┐   ┌────┴────┐
-      │ network │   │   api   │   │  wallet │
-      └────┬────┘   └────┬────┘   └─────────┘
-           └─────┬───────┘
-            ┌────┴────┐
+      ┌────┴────┐   ┌────┴────┐   ┌────┴────┐   ┌────────┐
+      │ network │   │   api   │   │  wallet │   │ bridge │
+      └────┬────┘   └────┬────┘   └─────────┘   └────┬───┘
+           └─────┬───────┘                      HTLC, Relayer,
+            ┌────┴────┐                     Chain Adapters (5 chains)
             │  node   │  Main binary
             └─────────┘
 ```
@@ -197,6 +210,59 @@ The node serves a built-in web dashboard at `http://localhost:8080/` with no ext
 - **Contracts** - Deploy WASM contracts (hex paste or .wasm file upload), call contract functions
 
 Wallet accounts are stored as encrypted keystores in browser `localStorage`. The keystore uses scrypt + AES-256-GCM, so it is safe to persist client-side. Transaction signing happens server-side — the encrypted keystore + password are sent to the API, which decrypts in memory, signs, submits, and returns the tx hash.
+
+### Bridge
+- **Chains** - View all 5 supported external chains (Bitcoin, Ethereum, BNB Chain, Polygon, Solana) with their tokens, fees, and limits
+- **Transfer** - Initiate cross-chain transfers with direction selector, chain picker, token selection, and amount input
+- **Atomic Swap** - Create HTLC swaps with automatic secret generation, claim with preimage, or refund expired swaps
+- **History** - View all bridge transfers with status tracking (Pending → Confirmed → Completed)
+- **Fees & Liquidity** - Real-time fee schedules and bridge liquidity per chain
+
+---
+
+## Cross-Chain Bridge
+
+RustChain includes a full cross-chain interoperability system supporting **Bitcoin**, **Ethereum**, **BNB Chain**, **Polygon**, and **Solana**. See [docs/BRIDGE.md](docs/BRIDGE.md) for detailed documentation.
+
+### Supported Chains
+
+| Chain | Type | Confirmations | Native Token | Bridge Tokens |
+|-------|------|---------------|-------------|---------------|
+| Bitcoin | UTXO/HTLC | 6 blocks (~60 min) | BTC | BTC |
+| Ethereum | EVM | 12 blocks (~3 min) | ETH | ETH, USDT, USDC |
+| BNB Chain | EVM | 15 blocks (~45 sec) | BNB | BNB, BUSD |
+| Polygon | EVM | 128 blocks (~4 min) | MATIC | MATIC |
+| Solana | Program | 32 slots (~13 sec) | SOL | SOL |
+
+### Bridge Mechanisms
+
+**1. HTLC Atomic Swaps** — Trustless cross-chain trading using SHA-256 hash-locked contracts with timelocks. Both parties lock funds on their respective chains; revealing the preimage claims both sides atomically.
+
+**2. Lock-and-Mint Bridge** — Users lock tokens on the source chain; the bridge mints equivalent wrapped tokens on RustChain after multi-validator confirmation. Burning wrapped tokens unlocks the originals.
+
+**3. Multi-Validator Security** — Bridge operations require threshold signatures (default 2/3+) from a dedicated validator set. Validators independently verify source-chain transactions before signing.
+
+### Quick Example
+
+```bash
+# List supported chains
+curl http://localhost:8080/bridge/chains
+
+# Initiate a cross-chain transfer to Ethereum
+curl -X POST http://localhost:8080/bridge/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"0xabc...","dest_chain":"Ethereum","recipient":"0xdef...","token_symbol":"ETH","amount":"1000000000000000000"}'
+
+# Create an HTLC atomic swap
+curl -X POST http://localhost:8080/bridge/htlc/create \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"0xabc...","recipient":"0xdef...","amount":"1000000","hash_lock":"0x<sha256-hash>","external_chain":"Bitcoin","external_address":"bc1q...","external_amount":"100000"}'
+
+# Claim an HTLC with the preimage
+curl -X POST http://localhost:8080/bridge/htlc/claim \
+  -H "Content-Type: application/json" \
+  -d '{"swap_id":"<id>","preimage":"0x<secret>","claimer":"0xdef..."}'
+```
 
 ---
 
@@ -352,6 +418,27 @@ Server-side signing endpoints. The encrypted keystore + password are sent; decry
 | POST | `/wallet/deploy` | Deploy contract: `{keystore, password, bytecode, gas_limit?}` → tx_hash |
 | POST | `/wallet/call` | Call contract: `{keystore, password, contract, function, args?, value?, gas_limit?}` → tx_hash |
 
+### Bridge
+
+Cross-chain bridge endpoints for transfers, HTLC atomic swaps, and validator management. See [docs/BRIDGE.md](docs/BRIDGE.md) for detailed usage.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/bridge/chains` | Supported chains with tokens, fees, and limits |
+| GET | `/bridge/stats` | Bridge statistics: total transfers, active HTLCs, liquidity |
+| GET | `/bridge/fees` | Fee schedule per chain (basis points, min/max) |
+| GET | `/bridge/liquidity` | Available bridge liquidity per chain and token |
+| GET | `/bridge/transfers` | List bridge transfers (newest first, max 100) |
+| GET | `/bridge/transfers/:id` | Bridge transfer by ID with status and confirmations |
+| POST | `/bridge/transfer` | Initiate cross-chain transfer: `{sender, dest_chain, recipient, token_symbol, amount}` |
+| POST | `/bridge/transfer/confirm` | Validator confirms transfer: `{transfer_id, validator}` |
+| GET | `/bridge/htlc` | List HTLC atomic swaps (max 100) |
+| GET | `/bridge/htlc/:id` | HTLC swap by ID |
+| POST | `/bridge/htlc/create` | Create HTLC: `{sender, recipient, amount, hash_lock, external_chain, external_address, external_amount}` |
+| POST | `/bridge/htlc/claim` | Claim HTLC with preimage: `{swap_id, preimage, claimer}` |
+| POST | `/bridge/htlc/refund` | Refund expired HTLC: `{swap_id, refunder}` |
+| GET | `/bridge/validators` | List bridge validators and their status |
+
 ### Monitoring
 
 | Method | Endpoint | Description |
@@ -416,6 +503,36 @@ curl -X POST http://localhost:8080/wallet/deploy \
 
 # WebSocket (using websocat)
 websocat ws://localhost:8080/ws
+
+# Bridge: list supported chains
+curl http://localhost:8080/bridge/chains
+
+# Bridge: get statistics
+curl http://localhost:8080/bridge/stats
+
+# Bridge: fee schedule
+curl http://localhost:8080/bridge/fees
+
+# Bridge: initiate cross-chain transfer
+curl -X POST http://localhost:8080/bridge/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"0xabc...","dest_chain":"Ethereum","recipient":"0xdef...","token_symbol":"ETH","amount":"1000000000000000000"}'
+
+# Bridge: create HTLC atomic swap
+curl -X POST http://localhost:8080/bridge/htlc/create \
+  -H "Content-Type: application/json" \
+  -d '{"sender":"0xabc...","recipient":"0xdef...","amount":"1000000","hash_lock":"0x<64-hex-chars>","external_chain":"Bitcoin","external_address":"bc1q...","external_amount":"100000"}'
+
+# Bridge: claim HTLC
+curl -X POST http://localhost:8080/bridge/htlc/claim \
+  -H "Content-Type: application/json" \
+  -d '{"swap_id":"<swap-id>","preimage":"0x<secret-hex>","claimer":"0xdef..."}'
+
+# Bridge: list active HTLCs
+curl http://localhost:8080/bridge/htlc
+
+# Bridge: list transfers
+curl http://localhost:8080/bridge/transfers
 ```
 
 ---
@@ -465,6 +582,22 @@ pub extern "C" fn get_balance(args_ptr: i32, args_len: i32) -> i32 {
 | `emit_event(data)` | Emit an event |
 | `abort(msg) -> !` | Abort execution |
 
+### Bridge Contract
+
+The bridge contract (`contracts/bridge/`) provides on-chain HTLC and bridge operations as a WASM smart contract:
+
+| Entry Point | Description |
+|-------------|-------------|
+| `init()` | Initialize bridge with deployer as admin |
+| `create_htlc(sender, recipient, amount, hash_lock, timelock)` | Create a hash-locked swap |
+| `claim_htlc(swap_id, preimage)` | Claim a swap by revealing the SHA-256 preimage |
+| `refund_htlc(swap_id)` | Refund an expired swap back to the sender |
+| `bridge_lock(token, amount, dest_chain, dest_address)` | Lock tokens for outbound bridge transfer |
+| `bridge_mint(recipient, token, amount)` | Mint wrapped tokens (admin/validator only) |
+| `bridge_burn(token, amount)` | Burn wrapped tokens for outbound release |
+| `add_validator(address)` / `remove_validator(address)` | Manage bridge validators (admin only) |
+| `pause()` / `unpause()` | Emergency pause/unpause (admin only) |
+
 ### Building Contracts
 
 ```bash
@@ -474,11 +607,16 @@ rustup target add wasm32-unknown-unknown
 # Build the example token contract
 cd contracts/token
 cargo build --target wasm32-unknown-unknown --release
+
+# Build the bridge contract
+cd contracts/bridge
+cargo build --target wasm32-unknown-unknown --release
 ```
 
-The compiled WASM binary will be at:
+The compiled WASM binaries will be at:
 ```
 contracts/token/target/wasm32-unknown-unknown/release/rustchain_token_contract.wasm
+contracts/bridge/target/wasm32-unknown-unknown/release/rustchain_bridge_contract.wasm
 ```
 
 ### Native Testing
@@ -749,15 +887,17 @@ Kubernetes features:
 ## Testing
 
 ```bash
-# Run all 78 tests
+# Run all 116 tests
 cargo test --workspace
 
 # Run tests for specific crates
-cargo test -p rustchain-crypto     # 30 tests: keys, hashing, merkle, BIP39, keystores
-cargo test -p rustchain-core       # 21 tests: blocks, transactions, accounts, genesis, validators
-cargo test -p rustchain-consensus  # 16 tests: PoS selection, finality, slashing, mempool
-cargo test -p rustchain-sdk        #  8 tests: mock storage, caller, transfers, events, abort
-cargo test -p rustchain-vm         #  3 tests: gas metering
+cargo test -p rustchain-crypto          # 30 tests: keys, hashing, merkle, BIP39, keystores
+cargo test -p rustchain-bridge          # 32 tests: HTLC, state, relayer, registry, chain adapters
+cargo test -p rustchain-core            # 21 tests: blocks, transactions, accounts, genesis, validators
+cargo test -p rustchain-consensus       # 16 tests: PoS selection, finality, slashing, mempool
+cargo test -p rustchain-sdk             #  8 tests: mock storage, caller, transfers, events, abort
+cargo test -p rustchain-bridge-contract #  6 tests: HTLC lifecycle, bridge lock/mint/burn, admin
+cargo test -p rustchain-vm              #  3 tests: gas metering
 
 # Lint check (0 warnings)
 cargo clippy --workspace
@@ -771,9 +911,11 @@ cargo fmt --all -- --check
 | Crate | Tests | Coverage Areas |
 |-------|-------|----------------|
 | rustchain-crypto | 30 | Ed25519 key generation, signing/verification, address derivation, Blake3 hashing, Merkle tree proofs, BIP39 mnemonic generation/import, keystore encrypt/decrypt |
+| rustchain-bridge | 32 | HTLC create/claim/refund/expiry, bridge state outbound/inbound, multi-validator threshold signing, relayer fee calculation, chain registry tokens, EVM/Bitcoin/Solana chain adapters |
 | rustchain-core | 21 | Block creation/validation/signing, transaction signing/verification, account state, genesis config validation, validator set management |
 | rustchain-consensus | 16 | Weighted validator selection, deterministic proposer, BFT finality quorum, double-sign detection/slashing, downtime slashing, mempool insert/dedup/selection, gas price filtering |
 | rustchain-sdk | 8 | Mock storage read/write, caller/address configuration, block info, token transfers (success + insufficient), event emission, abort |
+| rustchain-bridge-contract | 6 | HTLC create/claim/refund lifecycle, bridge lock/mint/burn, admin validator management, pause/unpause |
 | rustchain-vm | 3 | Gas meter consumption, exact limit, overflow protection |
 
 ---
